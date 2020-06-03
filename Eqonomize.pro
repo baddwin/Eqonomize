@@ -128,6 +128,7 @@ unix:!equals(COMPILE_RESOURCES,"yes"):!android:!macx {
 			translations/eqonomize_es.ts \
 			translations/eqonomize_fr.ts \
 			translations/eqonomize_hu.ts \
+			translations/eqonomize_id.ts \
 			translations/eqonomize_it.ts \
 			translations/eqonomize_nl.ts \
 			translations/eqonomize_pt.ts \
@@ -144,6 +145,7 @@ unix:!equals(COMPILE_RESOURCES,"yes"):!android:!macx {
 			translations/eqonomize_es.qm \
 			translations/eqonomize_fr.qm \
 			translations/eqonomize_hu.qm \
+                        translations/eqonomize_id.qm \
 			translations/eqonomize_it.qm \
 			translations/eqonomize_nl.qm \
 			translations/eqonomize_pt.qm \

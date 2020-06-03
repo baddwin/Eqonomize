@@ -6302,7 +6302,7 @@ bool Eqonomize::exportScheduleList(QTextStream &outf, int fileformat) {
 					if(!scheduleView->isColumnHidden(index)) {
 						if(index > 0) outf << ",";
 						if(index == 3) {
-							outf << "\"" << htmlize_string(i->text(index).replace("−", "-").remove(" ")) << "\"";
+							outf << "\"" << htmlize_string(i->text(index).replace("−", "-").remove(" ")) << "\"";
 						} else {
 							outf << "\"" << i->text(index) << "\"";
 						}
@@ -7167,8 +7167,10 @@ void Eqonomize::setupActions() {
 				NEW_RADIO_ACTION(action_lang, "Français", ActionSelectLang);
 			} else if(slang == "hu") {
 				NEW_RADIO_ACTION(action_lang, "Magyar nyelv", ActionSelectLang);
-			} else if(slang == "it") {
-				NEW_RADIO_ACTION(action_lang, "Italiano", ActionSelectLang);
+            } else if(slang == "id") {
+                NEW_RADIO_ACTION(action_lang, "Bahasa Indonesia", ActionSelectLang);
+            } else if(slang == "it") {
+                NEW_RADIO_ACTION(action_lang, "Italiano", ActionSelectLang);
 			} else if(slang == "nl") {
 				NEW_RADIO_ACTION(action_lang, "Nederlands", ActionSelectLang);
 			} else if(slang == "pt") {

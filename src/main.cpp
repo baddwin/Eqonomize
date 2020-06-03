@@ -60,7 +60,7 @@ int main(int argc, char **argv) {
 	
 	EqonomizeTranslator eqtr;
 	app.installTranslator(&eqtr);
-	if(!slang.isEmpty()) {
+    if(!slang.isEmpty()) {
 		if(translator.load(QLatin1String("eqonomize") + QLatin1String("_") + slang, QLatin1String(TRANSLATIONS_DIR))) app.installTranslator(&translator);
 		if(translator_qt.load("qt_" + slang, QLibraryInfo::location(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qt);
 		if(translator_qtbase.load("qtbase_" + slang, QLibraryInfo::location(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qtbase);
