@@ -2840,7 +2840,7 @@ Was wollen Sie mit diesen tun?</translation>
         <location filename="../src/categoriescomparisonchart.cpp" line="184"/>
         <location filename="../src/categoriescomparisonchart.cpp" line="1397"/>
         <source>All Accounts</source>
-        <translation>semua Akun</translation>
+        <translation type="unfinished">Semua Akun</translation>
     </message>
     <message>
         <location filename="../src/categoriescomparisonchart.cpp" line="187"/>
@@ -3191,7 +3191,7 @@ Wert: %2</translation>
         <location filename="../src/categoriescomparisonreport.cpp" line="105"/>
         <location filename="../src/categoriescomparisonreport.cpp" line="2030"/>
         <source>All Payees and Payers</source>
-        <translation>Semua penerima dan Wajib</translation>
+        <translation type="unfinished">Semua penerima dan penyetor</translation>
     </message>
     <message>
         <location filename="../src/categoriescomparisonreport.cpp" line="119"/>
@@ -6763,7 +6763,7 @@ Konfirmasikan bahwa mereka benar telah terjadi (atau akan berlangsung hari ini).
         <location filename="../src/eqonomize.cpp" line="2639"/>
         <source>Shares</source>
         <comment>Financial shares</comment>
-        <translation>Anteile</translation>
+        <translation type="unfinished">Saham</translation>
     </message>
     <message>
         <source>Quotation</source>
@@ -6809,7 +6809,7 @@ Konfirmasikan bahwa mereka benar telah terjadi (atau akan berlangsung hari ini).
         <location filename="../src/eqonomize.cpp" line="3652"/>
         <source>Stock</source>
         <comment>Financial stock</comment>
-        <translation>Aktie</translation>
+        <translation type="unfinished">Lembar Saham</translation>
     </message>
     <message>
         <location filename="../src/eqonomize.cpp" line="6432"/>
@@ -9558,7 +9558,7 @@ Apa yang akan Anda lakukan padanya?</translation>
         <location filename="../src/overtimechart.cpp" line="251"/>
         <location filename="../src/overtimechart.cpp" line="4477"/>
         <source>All Accounts Split</source>
-        <translation>Semua Akun Split</translation>
+        <translation>Semua Akun Dipisah</translation>
     </message>
     <message>
         <location filename="../src/overtimechart.cpp" line="627"/>
@@ -10134,7 +10134,7 @@ Tanggal: %3</translation>
     <message>
         <location filename="../src/overtimechart.cpp" line="3318"/>
         <source>Assets &amp; Liabilities</source>
-        <translation>Aset &amp; Kewajiban</translation>
+        <translation type="unfinished">Aktiva &amp; Kewajiban</translation>
     </message>
     <message>
         <source>Change: %1</source>
