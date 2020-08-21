@@ -46,7 +46,7 @@
 #include <QPushButton>
 #include <QCheckBox>
 #include <QCompleter>
-#include <QDirModel>
+#include <QFileSystemModel>
 #include <QHash>
 #include <QMimeDatabase>
 
@@ -57,6 +57,12 @@
 #include <ctime>
 
 #include <QDebug>
+
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+#	define DATE_TO_MSECS(d) QDateTime(d.startOfDay()).toMSecsSinceEpoch()
+#else
+#	define DATE_TO_MSECS(d) QDateTime(d).toMSecsSinceEpoch()
+#endif
 
 extern QString last_document_directory;
 
@@ -76,7 +82,9 @@ ImportQIFDialog::ImportQIFDialog(Budget *budg, QWidget *parent, bool extra_param
 	QHBoxLayout *layout1h = new QHBoxLayout();
 	fileEdit = new QLineEdit(page1);
 	QCompleter *completer = new QCompleter(this);
-	completer->setModel(new QDirModel(completer));
+	QFileSystemModel *fsModel = new QFileSystemModel(completer);
+	fsModel->setRootPath(QString());
+	completer->setModel(fsModel);
 	fileEdit->setCompleter(completer);
 	layout1h->addWidget(fileEdit);
 	fileButton = new QPushButton(LOAD_ICON("document-open"), QString(), page1);
@@ -129,7 +137,7 @@ ImportQIFDialog::ImportQIFDialog(Budget *budg, QWidget *parent, bool extra_param
 	openingBalanceEdit = new QLineEdit(page3);
 	openingBalanceEdit->setText("Opening Balance");
 	layout3->addWidget(openingBalanceEdit, 1, 1);
-	
+
 	QIFWizardPage *page4 = new QIFWizardPage();
 	page4->setTitle(tr("Import File"));
 	page4->setSubTitle(tr("No (further) issues were found. Press finish to import the selected QIF file."));
@@ -137,7 +145,7 @@ ImportQIFDialog::ImportQIFDialog(Budget *budg, QWidget *parent, bool extra_param
 	QGridLayout *layout4 = new QGridLayout(page4);
 	ignoreDuplicateTransactionsButton = new QCheckBox(tr("Ignore duplicate transactions"), page4);
 	layout4->addWidget(ignoreDuplicateTransactionsButton, 0, 0, 1, -1);
-	
+
 
 	setOption(QWizard::HaveHelpButton, false);
 
@@ -408,10 +416,10 @@ void ImportQIFDialog::accept() {
 		file.close();
 		return;
 	}
-	
+
 	QFileInfo fileInfo(url);
 	last_document_directory = fileInfo.absoluteDir().absolutePath();
-	
+
 	QTextStream fstream(&file);
 	importQIF(fstream, false, qi, budget, ignoreDuplicateTransactionsButton->isChecked());
 	file.close();
@@ -446,7 +454,7 @@ void ImportQIFDialog::accept() {
 	return QWizard::reject();
 }
 
-ExportQIFDialog::ExportQIFDialog(Budget *budg, QWidget *parent, bool extra_parameters) : QDialog(parent, 0), budget(budg), b_extra(extra_parameters) {
+ExportQIFDialog::ExportQIFDialog(Budget *budg, QWidget *parent, bool extra_parameters) : QDialog(parent), budget(budg), b_extra(extra_parameters) {
 
 	setWindowTitle(tr("Export QIF File"));
 	setModal(true);
@@ -488,13 +496,15 @@ ExportQIFDialog::ExportQIFDialog(Budget *budg, QWidget *parent, bool extra_param
 	QHBoxLayout *layouth = new QHBoxLayout();
 	fileEdit = new QLineEdit(this);
 	QCompleter *completer = new QCompleter(this);
-	completer->setModel(new QDirModel(completer));
+	QFileSystemModel *fsModel = new QFileSystemModel(completer);
+	fsModel->setRootPath(QString());
+	completer->setModel(fsModel);
 	fileEdit->setCompleter(completer);
 	layouth->addWidget(fileEdit);
 	fileButton = new QPushButton(LOAD_ICON("document-open"), QString(), this);
 	layouth->addWidget(fileButton);
 	grid->addLayout(layouth, 3, 1);
-	
+
 	buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
@@ -557,10 +567,10 @@ void ExportQIFDialog::accept() {
 		QMessageBox::critical(this, tr("Error"), tr("Couldn't open file for writing."));
 		return;
 	}
-	
+
 	QFileInfo fileInfo(url);
 	last_document_directory = fileInfo.absoluteDir().absolutePath();
-	
+
 	QTextStream stream(&ofile);
 	exportQIF(stream, qi, budget, true);
 	if(!ofile.commit()) {
@@ -621,7 +631,11 @@ void testQIFDate(const QString &str, bool &p1, bool &p2, bool &p3, bool &p4, boo
 		lz = 1;
 		return;
 	}
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+	QStringList strlist = str.split(separator, Qt::SkipEmptyParts);
+#else
 	QStringList strlist = str.split(separator, QString::SkipEmptyParts);
+#endif
 	if(strlist.count() == 2 && (p1 || p2)) {
 		int i = strlist[1].indexOf('\'');
 		if(i >= 0) {
@@ -1161,7 +1175,7 @@ void importQIF(QTextStream &fstream, bool test, qif_info &qi, Budget *budget, bo
 												if(it != def_income_cats.constEnd()) parent_cat = *it;
 											}
 											if(parent_cat) b_exp = !b_exp;
-										} 
+										}
 										if(!parent_cat) {
 											if(!b_exp) parent_cat = new IncomesAccount(budget, current_split->category);
 											else parent_cat = new ExpensesAccount(budget, current_split->category);
@@ -1206,7 +1220,7 @@ void importQIF(QTextStream &fstream, bool test, qif_info &qi, Budget *budget, bo
 									}
 								}
 								if(!payee.isEmpty()) split->setPayee(payee);
-								split->setTimestamp(datestamps.contains(split->date()) ? datestamps[split->date()] + 1 : QDateTime(split->date()).toMSecsSinceEpoch() / 1000);
+								split->setTimestamp(datestamps.contains(split->date()) ? datestamps[split->date()] + 1 : DATE_TO_MSECS(split->date()) / 1000);
 								datestamps[split->date()] = split->timestamp();
 								if(split->count() >= 2) {
 									budget->addSplitTransaction(split);
@@ -1271,7 +1285,7 @@ void importQIF(QTextStream &fstream, bool test, qif_info &qi, Budget *budget, bo
 										qi.duplicates++;
 										delete tra;
 									} else {
-										tra->setTimestamp(datestamps.contains(tra->date()) ? datestamps[tra->date()] + 1 : QDateTime(tra->date()).toMSecsSinceEpoch() / 1000);
+										tra->setTimestamp(datestamps.contains(tra->date()) ? datestamps[tra->date()] + 1 : DATE_TO_MSECS(tra->date()) / 1000);
 										datestamps[tra->date()] = tra->timestamp();
 										budget->addTransaction(tra);
 										transfers.append(tra);
@@ -1297,7 +1311,7 @@ void importQIF(QTextStream &fstream, bool test, qif_info &qi, Budget *budget, bo
 									if(it != def_income_cats.constEnd()) parent_cat = *it;
 								}
 								if(parent_cat) b_exp = !b_exp;
-							} 
+							}
 							if(!parent_cat) {
 								if(!b_exp) parent_cat = new IncomesAccount(budget, category);
 								else parent_cat = new ExpensesAccount(budget, category);
@@ -1330,7 +1344,7 @@ void importQIF(QTextStream &fstream, bool test, qif_info &qi, Budget *budget, bo
 										qi.duplicates++;
 										delete exp;
 									} else {
-										exp->setTimestamp(datestamps.contains(exp->date()) ? datestamps[exp->date()] + 1 : QDateTime(exp->date()).toMSecsSinceEpoch() / 1000);
+										exp->setTimestamp(datestamps.contains(exp->date()) ? datestamps[exp->date()] + 1 : DATE_TO_MSECS(exp->date()) / 1000);
 										datestamps[exp->date()] = exp->timestamp();
 										budget->addTransaction(exp);
 										qInfo() << exp->description();
@@ -1349,7 +1363,7 @@ void importQIF(QTextStream &fstream, bool test, qif_info &qi, Budget *budget, bo
 										qi.duplicates++;
 										delete inc;
 									} else {
-										inc->setTimestamp(datestamps.contains(inc->date()) ? datestamps[inc->date()] + 1 : QDateTime(inc->date()).toMSecsSinceEpoch() / 1000);
+										inc->setTimestamp(datestamps.contains(inc->date()) ? datestamps[inc->date()] + 1 : DATE_TO_MSECS(inc->date()) / 1000);
 										datestamps[inc->date()] = inc->timestamp();
 										budget->addTransaction(inc);
 										qInfo() << inc->description();
@@ -1727,7 +1741,7 @@ void exportQIF(QTextStream &fstream, qif_info &qi, Budget *budget, bool export_c
 				Expense *exp = *it;
 				if(exp->from() == qi.current_account) {
 					ecats[exp->category()] = true;
-					
+
 				}
 			}
 			QMap<IncomesAccount*, bool>::iterator iit_e = icats.end();
@@ -1749,7 +1763,7 @@ void exportQIF(QTextStream &fstream, qif_info &qi, Budget *budget, bool export_c
 		bool first = true;
 		SplitTransaction *split = NULL;
 		for(TransactionList<Transaction*>::const_iterator it = budget->transactions.constBegin(); it != budget->transactions.constEnd(); ++it) {
-			Transaction *trans = *it;		
+			Transaction *trans = *it;
 			if(trans->fromAccount() == qi.current_account || trans->toAccount() == qi.current_account) {
 				if(first) {
 					exportQIFOpeningBalance(fstream, qi, qi.current_account, trans->date());

@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006-2008, 2014, 2016-2019 by Hanna Knutsson            *
+ *   Copyright (C) 2006-2008, 2014, 2016-2020 by Hanna Knutsson            *
  *   hanna.knutsson@protonmail.com                                         *
  *                                                                         *
  *   This file is part of Eqonomize!.                                      *
@@ -44,7 +44,7 @@
 #include <QKeyEvent>
 #include <QMessageBox>
 #include <QStandardPaths>
-#include <QDirModel>
+#include <QFileSystemModel>
 #include <QDebug>
 #include <QSettings>
 #include <QMenu>
@@ -63,6 +63,137 @@
 #define CURROW(row, col)	(b_autoedit ? row % rows : row)
 #define CURCOL(row, col)	(b_autoedit ? ((row / rows) * 2) + col : col)
 #define TEROWCOL(row, col)	CURROW(row, col), CURCOL(row, col)
+
+LinksWidget::LinksWidget(QWidget *parent, bool is_active) : QWidget(parent), b_editable(is_active), b_links(is_active) {
+	first_parent_link = 0;
+	QHBoxLayout *box = new QHBoxLayout(this);
+	box->setContentsMargins(0, 0, 0, 0);
+	linksLabel = new QLabel(this);
+	linksLabel->setWordWrap(true);
+	linksLabel->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Minimum);
+	box->addWidget(linksLabel, 1);
+	if(b_editable) {
+		removeButton = new QPushButton(LOAD_ICON("edit-delete"), QString(), this);
+		removeButton->setEnabled(false);
+		box->addWidget(removeButton, 0);
+		connect(removeButton, SIGNAL(clicked()), this, SLOT(removeLink()));
+	} else {
+		removeButton = NULL;
+	}
+	connect(linksLabel, SIGNAL(linkActivated(const QString&)), this, SLOT(linkClicked(const QString&)));
+}
+void LinksWidget::linkClicked(const QString &str) {
+	qlonglong lid = str.toLongLong();
+	for(int i = 0; i < links.count(); i++) {
+		if(links.at(i) && links.at(i)->id() == lid) {
+			Eqonomize::openLink(links.at(i), parentWidget());
+			return;
+		}
+	}
+}
+void LinksWidget::removeLink() {
+	if(first_parent_link == 1) {
+		links.removeAt(0);
+		first_parent_link = 0;
+		updateLabel();
+		removeButton->setEnabled(false);
+	} else if(first_parent_link > 0) {
+		QDialog *dialog = new QDialog(this);
+		dialog->setWindowTitle(tr("Remove Link"));
+		dialog->setModal(true);
+		QVBoxLayout *box1 = new QVBoxLayout(dialog);
+		QComboBox *combo = new QComboBox(dialog);
+		combo->addItem(tr("All"));
+		for(int i = 0; i < first_parent_link; i++) {
+			Transactions *tlink = links.at(i);
+			if(tlink) {
+				if(tlink->description().isEmpty()) {
+					combo->addItem(QLocale().toString(tlink->date(), QLocale::ShortFormat));
+				} else {
+					bool b_date = false;
+					for(int i2 = 0; i2 < links.count(); i2++) {
+						if(i != i2 && links.at(i2) && tlink->description().compare(links.at(i2)->description(), Qt::CaseInsensitive) == 0) {
+							b_date = true;
+							break;
+						}
+					}
+					combo->addItem(b_date ? tlink->description() + " (" + QLocale().toString(tlink->date(), QLocale::ShortFormat) + ")" : tlink->description());
+				}
+			}
+		}
+		combo->setCurrentIndex(0);
+		box1->addWidget(combo);
+		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel);
+		QPushButton *delButton = new QPushButton(LOAD_ICON("edit-delete"), tr("Remove"));
+		buttonBox->addButton(delButton, QDialogButtonBox::AcceptRole);
+		delButton->setShortcut(Qt::CTRL | Qt::Key_Return);
+		connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
+		connect(delButton, SIGNAL(clicked()), dialog, SLOT(accept()));
+		box1->addWidget(buttonBox);
+		if(dialog->exec() == QDialog::Accepted) {
+			if(combo->currentIndex() > 0) {
+				links.removeAt(combo->currentIndex() - 1);
+				first_parent_link--;
+			} else {
+				while(first_parent_link > 0) {
+					links.removeAt(0);
+					first_parent_link--;
+				}
+				removeButton->setEnabled(false);
+			}
+			updateLabel();
+		}
+		dialog->deleteLater();
+	}
+}
+bool LinksWidget::isEmpty() {
+	return linksLabel->text().isEmpty();
+}
+void LinksWidget::updateLabel() {
+	QString str;
+	for(int i = 0; i < links.count(); i++) {
+		Transactions *ltrans = links.at(i);
+		if(ltrans) {
+			if(!str.isEmpty()) str += ", ";
+			if(b_links) {str += "<a href=\""; str += QString::number(ltrans->id()); str += "\">";}
+			if(i >= first_parent_link) str += "<i>";
+			if(ltrans->description().isEmpty()) {
+				str += QLocale().toString(ltrans->date(), QLocale::ShortFormat);
+			} else {
+				str += ltrans->description();
+				for(int i2 = 0; i2 < links.count(); i2++) {
+					if(i != i2 && links.at(i2) && ltrans->description().compare(links.at(i2)->description(), Qt::CaseInsensitive) == 0) {
+						str += " ("; str += QLocale().toString(ltrans->date(), QLocale::ShortFormat); str += ")";
+						break;
+					}
+				}
+			}
+			if(i >= first_parent_link) str += "</i>";
+			if(b_links) {str += "</a>";}
+		}
+	}
+	linksLabel->setText(str);
+}
+void LinksWidget::setTransaction(Transactions *trans) {
+	links.clear();
+	if(removeButton) removeButton->setEnabled(false);
+	if(trans) {
+		int n = trans->linksCount(true);
+		first_parent_link = trans->linksCount(false);
+		if(n > 0) {
+			for(int i = 0; i < n; i++) {
+				Transactions *ltrans = trans->getLink(i, true);
+				links << ltrans;
+				if(removeButton && i < first_parent_link) removeButton->setEnabled(true);
+			}
+		}
+	}
+	updateLabel();
+}
+void LinksWidget::updateTransaction(Transactions *trans) {
+	trans->clearLinks();
+	for(int i = 0; i < first_parent_link; i++) trans->addLink(links.at(i));
+}
 
 TagButton::TagButton(bool small_button, bool allow_new_tag, Budget *budg, QWidget *parent) : QPushButton(parent), b_small(small_button) {
 	tagMenu = new TagMenu(budg, this, allow_new_tag);
@@ -99,7 +230,7 @@ void TagButton::updateText() {
 	if(b_small) {
 		setText(QString("(") + QString::number(tagMenu->selectedTagsCount()) + ")");
 		setToolTip(str);
-	} else {		
+	} else {
 		setText(str.replace("&", "&&"));
 	}
 }
@@ -285,7 +416,7 @@ void TagMenu::mouseReleaseEvent(QMouseEvent *e) {
 	}
 }
 QString TagMenu::createTag() {
-	QString new_tag = QInputDialog::getText(this, tr("New Tag"), tr("Tag:")).trimmed(); 
+	QString new_tag = QInputDialog::getText(this, tr("New Tag"), tr("Tag:")).trimmed();
 	if(!new_tag.isEmpty()) {
 		if((new_tag.contains(",") && new_tag.contains("\"") && new_tag.contains("\'")) || (new_tag[0] == '\'' && new_tag.contains("\"")) || (new_tag[0] == '\"' && new_tag.contains("\'"))) {
 			if(new_tag[0] == '\'') new_tag.remove("\'");
@@ -349,6 +480,7 @@ TransactionEditWidget::TransactionEditWidget(bool auto_edit, bool extra_paramete
 	withdrawalLabel = NULL;
 	fileEdit = NULL;
 	tagButton = NULL;
+	linksWidget = NULL;
 	int i = 0;
 	if(b_sec) {
 		int decimals = budget->defaultShareDecimals();
@@ -457,7 +589,7 @@ TransactionEditWidget::TransactionEditWidget(bool auto_edit, bool extra_paramete
 			}
 			i++;
 		} else if(!multiaccount) {
-			editLayout->addWidget(new QLabel(tr("Description:", "Transaction description property (transaction title/generic article name)"), this), TEROWCOL(i, 0));			
+			editLayout->addWidget(new QLabel(tr("Description:", "Transaction description property (transaction title/generic article name)"), this), TEROWCOL(i, 0));
 			descriptionEdit = new QLineEdit(this);
 			descriptionEdit->setCompleter(new QCompleter(this));
 			descriptionEdit->completer()->setModel(new QStandardItemModel(this));
@@ -465,7 +597,7 @@ TransactionEditWidget::TransactionEditWidget(bool auto_edit, bool extra_paramete
 			descriptionEdit->setToolTip(tr("Transaction title/generic article name"));
 			editLayout->addWidget(descriptionEdit, TEROWCOL(i, 1));
 			i++;
-		}		
+		}
 		if(transtype == TRANSACTION_TYPE_TRANSFER) {
 			withdrawalLabel = new QLabel(tr("Withdrawal:", "Money taken out from account"), this);
 			editLayout->addWidget(withdrawalLabel, TEROWCOL(i, 0));
@@ -532,7 +664,7 @@ TransactionEditWidget::TransactionEditWidget(bool auto_edit, bool extra_paramete
 				i++;
 			}
 		}
-		
+
 	}
 	switch(transtype) {
 		case TRANSACTION_TYPE_TRANSFER: {
@@ -643,7 +775,9 @@ TransactionEditWidget::TransactionEditWidget(bool auto_edit, bool extra_paramete
 		QHBoxLayout *fileLayout = new QHBoxLayout();
 		fileEdit = new QLineEdit(this);
 		QCompleter *completer = new QCompleter(this);
-		completer->setModel(new QDirModel(completer));
+		QFileSystemModel *fsModel = new QFileSystemModel(completer);
+		fsModel->setRootPath(QString());
+		completer->setModel(fsModel);
 		fileEdit->setCompleter(completer);
 		fileLayout->addWidget(fileEdit);
 		QPushButton *selectFileButton = new QPushButton(LOAD_ICON("document-open"), QString(), this);
@@ -679,6 +813,16 @@ TransactionEditWidget::TransactionEditWidget(bool auto_edit, bool extra_paramete
 		} else {
 			editLayout->addWidget(commentsEdit, TEROWCOL(i, 1));
 		}
+		i++;
+	}
+	if(!b_autoedit) {
+		linksWidget = new LinksWidget(this, b_create_accounts);
+		linksWidget->hide();
+		//: Label for linked transactions
+		linksLabelLabel = new QLabel(tr("Related to:"), this);
+		linksLabelLabel->hide();
+		editLayout->addWidget(linksLabelLabel, TEROWCOL(i, 0));
+		editLayout->addWidget(linksWidget, TEROWCOL(i, 1));
 		i++;
 	}
 	bottom_layout = new QHBoxLayout();
@@ -745,7 +889,7 @@ TransactionEditWidget::TransactionEditWidget(bool auto_edit, bool extra_paramete
 				}
 				break;
 			}
-		}		
+		}
 		if(sharesEdit) connect(sharesEdit, SIGNAL(valueChanged(double)), this, SLOT(sharesChanged(double)));
 		if(quotationEdit) connect(quotationEdit, SIGNAL(valueChanged(double)), this, SLOT(quotationChanged(double)));
 	} else {
@@ -922,7 +1066,7 @@ void TransactionEditWidget::newFromAccount() {
 	budget->resetDefaultCurrencyChanged();
 	budget->resetCurrenciesModified();
 	Account *account = fromCombo->createAccount();
-	if(account) {		
+	if(account) {
 		emit accountAdded(account);
 		if(toCombo) toCombo->updateAccounts();
 	}
@@ -932,7 +1076,7 @@ void TransactionEditWidget::newToAccount() {
 	budget->resetDefaultCurrencyChanged();
 	budget->resetCurrenciesModified();
 	Account *account = toCombo->createAccount();
-	if(account) {		
+	if(account) {
 		emit accountAdded(account);
 		if(fromCombo) fromCombo->updateAccounts();
 	}
@@ -1565,6 +1709,7 @@ bool TransactionEditWidget::modifyTransaction(Transaction *trans) {
 	if(payeeEdit && trans->type() == TRANSACTION_TYPE_EXPENSE) ((Expense*) trans)->setPayee(payeeEdit->text());
 	if(payeeEdit && trans->type() == TRANSACTION_TYPE_INCOME) ((Income*) trans)->setPayer(payeeEdit->text());
 	if(tagButton) tagButton->modifyTransaction(trans);
+	if(linksWidget) linksWidget->updateTransaction(trans);
 	trans->setModified();
 	return true;
 }
@@ -1577,13 +1722,13 @@ Security *TransactionEditWidget::selectedSecurity() {
 Transactions *TransactionEditWidget::createTransactionWithLoan() {
 
 	if(!validValues()) return NULL;
-	
+
 	AssetsAccount *loan = new AssetsAccount(budget, ASSETS_TYPE_LIABILITIES, tr("Loan for %1").arg(descriptionEdit->text().isEmpty() ? toCombo->currentAccount()->name() : descriptionEdit->text()));
 	loan->setCurrency((Currency*) currencyCombo->currentData().value<void*>());
 	if(payeeEdit && lenderEdit->text().isEmpty()) loan->setMaintainer(payeeEdit->text());
 	else loan->setMaintainer(lenderEdit->text());
 	budget->addAccount(loan);
-	
+
 	if(is_zero(downPaymentEdit->value())) {
 		Expense *expense = new Expense(budget, valueEdit->value(), dateEdit->date(), (ExpensesAccount*) toCombo->currentAccount(), loan, descriptionEdit->text(), commentsEdit->text());
 		if(quantityEdit) expense->setQuantity(quantityEdit->value());
@@ -1591,15 +1736,16 @@ Transactions *TransactionEditWidget::createTransactionWithLoan() {
 		if(tagButton) tagButton->modifyTransaction(expense);
 		return expense;
 	}
-	
+
 	MultiAccountTransaction *split = new MultiAccountTransaction(budget, (CategoryAccount*) toCombo->currentAccount(), descriptionEdit->text());
+	if(linksWidget) linksWidget->updateTransaction(split);
 	split->setComment(commentsEdit->text());
 	if(fileEdit) split->setAssociatedFile(fileEdit->text());
 	if(quantityEdit) split->setQuantity(quantityEdit->value());
-	
+
 	Expense *expense = new Expense(budget, valueEdit->value() - downPaymentEdit->value(), dateEdit->date(), (ExpensesAccount*) toCombo->currentAccount(), loan);
 	split->addTransaction(expense);
-	
+
 	Expense *down_payment = new Expense(budget, downPaymentEdit->value(), dateEdit->date(), (ExpensesAccount*) toCombo->currentAccount(), (AssetsAccount*) fromCombo->currentAccount());
 	down_payment->setPayee(loan->maintainer());
 	split->addTransaction(down_payment);
@@ -1668,6 +1814,7 @@ Transaction *TransactionEditWidget::createTransaction() {
 	}
 	if(fileEdit) trans->setAssociatedFile(fileEdit->text());
 	if(tagButton) tagButton->modifyTransaction(trans);
+	if(linksWidget) linksWidget->updateTransaction(trans);
 	return trans;
 }
 void TransactionEditWidget::transactionRemoved(Transaction *trans) {
@@ -1918,6 +2065,16 @@ void TransactionEditWidget::setTransaction(Transaction *trans) {
 	if(quotationEdit) quotationEdit->blockSignals(true);
 	blockSignals(true);
 	b_select_security = false;
+	if(linksWidget) {
+		linksWidget->setTransaction(trans);
+		if(linksWidget->isEmpty()) {
+			linksWidget->hide();
+			linksLabelLabel->hide();
+		} else {
+			linksWidget->show();
+			linksLabelLabel->show();
+		}
+	}
 	if(trans == NULL) {
 		value_set = false; shares_set = false; sharevalue_set = false;
 		description_changed = false;
@@ -2019,16 +2176,26 @@ void TransactionEditWidget::setTransaction(Transaction *trans, const QDate &date
 		emit dateChanged(date);
 	}
 }
-void TransactionEditWidget::setMultiAccountTransaction(MultiAccountTransaction *split) {
+void TransactionEditWidget::setMultiAccountTransaction(MultiAccountTransaction *split, QDate date) {
 	if(!split) {
 		setTransaction(NULL);
 		return;
 	}
+	if(linksWidget) {
+		linksWidget->setTransaction(split);
+		if(linksWidget->isEmpty()) {
+			linksWidget->hide();
+			linksLabelLabel->hide();
+		} else {
+			linksWidget->show();
+			linksLabelLabel->show();
+		}
+	}
 	blockSignals(true);
 	b_select_security = false;
 	if(valueEdit) valueEdit->blockSignals(true);
-	if(dateEdit) dateEdit->setDate(split->date());
-	if(dateEdit) emit dateChanged(split->date());
+	if(dateEdit) dateEdit->setDate(date.isValid() ? date : split->date());
+	if(dateEdit) emit dateChanged(date.isValid() ? date : split->date());
 	if(commentsEdit) commentsEdit->setText(split->comment());
 	if(fileEdit) fileEdit->setText(split->associatedFile());
 	double v = 0.0;
@@ -2045,7 +2212,7 @@ void TransactionEditWidget::setMultiAccountTransaction(MultiAccountTransaction *
 			Account *acc = split->at(split_i)->fromAccount();
 			if(acc) {
 				fromCombo->setCurrentAccount(acc);
-				if(budget->defaultTransactionConversionRateDate() == TRANSACTION_CONVERSION_RATE_AT_DATE) v = budget->defaultCurrency()->convertTo(v, acc->currency(), split->at(split_i)->date());
+				if(budget->defaultTransactionConversionRateDate() == TRANSACTION_CONVERSION_RATE_AT_DATE) v = budget->defaultCurrency()->convertTo(v, acc->currency(), date.isValid() ? date : split->at(split_i)->date());
 				else v = budget->defaultCurrency()->convertTo(v, acc->currency());
 			}
 		}
@@ -2057,7 +2224,7 @@ void TransactionEditWidget::setMultiAccountTransaction(MultiAccountTransaction *
 			Account *acc = split->at(split_i)->toAccount();
 			if(acc) {
 				toCombo->setCurrentAccount(acc);
-				if(budget->defaultTransactionConversionRateDate() == TRANSACTION_CONVERSION_RATE_AT_DATE) v = budget->defaultCurrency()->convertTo(v, acc->currency(), split->at(split_i)->date());
+				if(budget->defaultTransactionConversionRateDate() == TRANSACTION_CONVERSION_RATE_AT_DATE) v = budget->defaultCurrency()->convertTo(v, acc->currency(), date.isValid() ? date : split->at(split_i)->date());
 				else v = budget->defaultCurrency()->convertTo(v, acc->currency());
 			}
 		}
@@ -2081,7 +2248,7 @@ void TransactionEditWidget::setMultiAccountTransaction(MultiAccountTransaction *
 	emit propertyChanged();
 }
 
-TransactionEditDialog::TransactionEditDialog(bool extra_parameters, int transaction_type, Currency *split_currency, bool transfer_to, Security *security, SecurityValueDefineType security_value_type, bool select_security, Budget *budg, QWidget *parent, bool allow_account_creation, bool multiaccount, bool withloan) : QDialog(parent, 0){
+TransactionEditDialog::TransactionEditDialog(bool extra_parameters, int transaction_type, Currency *split_currency, bool transfer_to, Security *security, SecurityValueDefineType security_value_type, bool select_security, Budget *budg, QWidget *parent, bool allow_account_creation, bool multiaccount, bool withloan) : QDialog(parent) {
 	setModal(true);
 	QVBoxLayout *box1 = new QVBoxLayout(this);
 	switch(transaction_type) {
@@ -2099,7 +2266,7 @@ TransactionEditDialog::TransactionEditDialog(bool extra_parameters, int transact
 	editWidget = new TransactionEditWidget(false, extra_parameters, transaction_type, split_currency, transfer_to, security, security_value_type, select_security, budg, this, allow_account_creation, multiaccount, withloan);
 	box1->addWidget(editWidget);
 	editWidget->transactionsReset();
-	
+
 	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
@@ -2122,7 +2289,7 @@ MultipleTransactionsEditDialog::MultipleTransactionsEditDialog(bool extra_parame
 	setModal(true);
 
 	added_account = NULL;
-	
+
 	/*int rows = 4;
 	if(b_extra && (transtype == TRANSACTION_TYPE_EXPENSE || transtype == TRANSACTION_TYPE_INCOME)) rows= 5;
 	else if(transtype == TRANSACTION_TYPE_TRANSFER) rows = 3;
@@ -2184,7 +2351,7 @@ MultipleTransactionsEditDialog::MultipleTransactionsEditDialog(bool extra_parame
 		editLayout->addWidget(payeeEdit, 4, 1);
 		connect(payeeButton, SIGNAL(toggled(bool)), payeeEdit, SLOT(setEnabled(bool)));
 	}
-	
+
 	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
@@ -2336,7 +2503,7 @@ bool MultipleTransactionsEditDialog::modifySplitTransaction(SplitTransaction *tr
 bool MultipleTransactionsEditDialog::checkAccounts() {
 	if(!categoryCombo) return true;
 	switch(transtype) {
-		case TRANSACTION_TYPE_INCOME: {			
+		case TRANSACTION_TYPE_INCOME: {
 			if(!categoryButton->isChecked()) return true;
 			if(!categoryCombo->hasAccount()) {
 				QMessageBox::critical(this, tr("Error"), tr("No income category available."));

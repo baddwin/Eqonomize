@@ -147,7 +147,7 @@ void LedgerListViewItem::updateMark(int mark) {
 	}
 	if(isDisabled() != (mark >= 0 && b_reconciled < 0)) setDisabled(mark >= 0 && b_reconciled < 0);
 }
-void LedgerListViewItem::setColors() { 
+void LedgerListViewItem::setColors() {
 	if(!expenseColor.isValid()) expenseColor = createExpenseColor(this, 8);
 	setForeground(8, expenseColor);
 	if(!incomeColor.isValid()) incomeColor = createIncomeColor(this, 9);
@@ -171,12 +171,12 @@ LedgerDialog::LedgerDialog(AssetsAccount *acc, Budget *budg, Eqonomize *parent, 
 
 	setWindowTitle(title);
 	setModal(false);
-	
+
 	headerMenu = NULL;
 	listMenu = NULL;
-	
+
 	key_event = NULL;
-	
+
 	re1 = 0;
 	re2 = 0;
 
@@ -185,9 +185,9 @@ LedgerDialog::LedgerDialog(AssetsAccount *acc, Budget *budg, Eqonomize *parent, 
 	if(!budget) budget = account->budget();
 
 	QVBoxLayout *box1 = new QVBoxLayout(this);
-	
+
 	bool focus_list = (account != NULL);
-	
+
 	if(!account) {
 		for(AccountList<AssetsAccount*>::const_iterator it = budget->assetsAccounts.constBegin(); it != budget->assetsAccounts.constEnd(); ++it) {
 			AssetsAccount *aaccount = *it;
@@ -241,7 +241,7 @@ LedgerDialog::LedgerDialog(AssetsAccount *acc, Budget *budg, Eqonomize *parent, 
 	findbox->addWidget(searchPreviousButton);
 	topbox->addLayout(findbox);
 	topbox->addStretch(1);
-	
+
 	reconcileWidget = new QFrame(this);
 	QGridLayout *reconcileLayout = new QGridLayout;
 	reconcileLayout->addWidget(new QLabel(tr("Opening balance:", "Accounting context")), 0, 0);
@@ -347,23 +347,25 @@ LedgerDialog::LedgerDialog(AssetsAccount *acc, Budget *budg, Eqonomize *parent, 
 	removeButton = buttons->addButton(tr("Delete"), QDialogButtonBox::ActionRole);
 	removeButton->setEnabled(false);
 	removeButton->setAutoDefault(false);
+	//: join transactions together
 	joinButton = buttons->addButton(tr("Join…"), QDialogButtonBox::ActionRole);
 	joinButton->setEnabled(false);
 	joinButton->setAutoDefault(false);
+	//: split up joined transactions
 	splitUpButton = buttons->addButton(tr("Split Up"), QDialogButtonBox::ActionRole);
 	splitUpButton->setEnabled(false);
 	splitUpButton->setAutoDefault(false);
 	box2->addWidget(buttons);
-	
+
 	statLabel = new QLabel("", this);
 	box3->addWidget(statLabel);
-	
+
 	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close);
 	buttonBox->button(QDialogButtonBox::Close)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	buttonBox->button(QDialogButtonBox::Close)->setAutoDefault(false);
 	connect(buttonBox->button(QDialogButtonBox::Close), SIGNAL(clicked()), this, SLOT(reject()));
 	box1->addWidget(buttonBox);
-	
+
 #define NEW_ACTION(action, text, icon, receiver, slot) action = new QAction(this); action->setText(text); action->setIcon(LOAD_ICON(icon)); connect(action, SIGNAL(triggered()), receiver, slot);
 #define NEW_ACTION_ALT(action, text, icon, icon_alt, receiver, slot) action = new QAction(this); action->setText(text); action->setIcon(LOAD_ICON2(icon, icon_alt)); connect(action, SIGNAL(triggered()), receiver, slot);
 
@@ -375,9 +377,9 @@ LedgerDialog::LedgerDialog(AssetsAccount *acc, Budget *budg, Eqonomize *parent, 
 	NEW_ACTION(ActionDelete, tr("Remove Transaction(s)"), "edit-delete", this, SLOT(remove()));
 	NEW_ACTION(ActionMarkReconciled, tr("Mark as reconciled"), "edit-delete", this, SLOT(reconcileTransactions()));
 	NEW_ACTION(ActionEditTimestamp, mainWin->ActionEditTimestamp->text(), "eqz-schedule", this, SLOT(editTimestamp()));
-	
+
 	new QShortcut(QKeySequence::Find, searchEdit, SLOT(setFocus()));
-	
+
 	connect(transactionsView, SIGNAL(itemSelectionChanged()), this, SLOT(transactionSelectionChanged()));
 	connect(transactionsView, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this, SLOT(edit(QTreeWidgetItem*, int)));
 	connect(transactionsView, SIGNAL(returnPressed(QTreeWidgetItem*)), this, SLOT(onTransactionReturnPressed(QTreeWidgetItem*)));
@@ -408,23 +410,23 @@ LedgerDialog::LedgerDialog(AssetsAccount *acc, Budget *budg, Eqonomize *parent, 
 	connect(searchEdit, SIGNAL(textChanged(const QString&)), this, SLOT(searchChanged(const QString&)));
 	connect(searchNextButton, SIGNAL(clicked()), this, SLOT(search()));
 	connect(searchPreviousButton, SIGNAL(clicked()), this, SLOT(searchPrevious()));
-	
+
 	QSettings settings;
 	QSize dialog_size = settings.value("Ledger/size", QSize()).toSize();
 	if(settings.value("GeneralOptions/version", 0).toInt() >= 140) {
 		transactionsView->header()->restoreState(settings.value("Ledger/listState", QByteArray()).toByteArray());
 	}
-	b_ascending = settings.value("Ledger/ascending", false).toBool(); 
+	b_ascending = settings.value("Ledger/ascending", false).toBool();
 	if(dialog_size.isValid()) {
 		resize(dialog_size);
 	}
 
 	accountChanged();
-	
+
 	if(focus_list) transactionsView->setFocus();
-	
+
 	toggleReconciliation(reconcileButton->isChecked());
-	
+
 	transactionsView->setMinimumHeight(500);
 
 }
@@ -476,7 +478,7 @@ void LedgerDialog::updateReconciliationStats(bool b_toggled, bool scroll_to, boo
 		if(b_started && trans->isReconciled(account)) {
 			if(b_finished) d_rec_op += trans->accountChange(account);
 			else d_rec_ch += trans->accountChange(account);
-			
+
 		}
 		if(update_markers && (b_finished || !b_started)) i->updateMark(b_finished ? 2 : 0);
 		++it;
@@ -781,7 +783,7 @@ void LedgerDialog::popupHeaderMenu(const QPoint &p) {
 		a->setCheckable(true);
 		a->setChecked(b_ascending);
 		connect(a, SIGNAL(toggled(bool)), this, SLOT(ascendingToggled(bool)));
-		
+
 	}
 	headerMenu->popup(transactionsView->header()->viewport()->mapToGlobal(p));
 }
@@ -799,7 +801,7 @@ void LedgerDialog::saveConfig() {
 	QSettings settings;
 	settings.setValue("Ledger/size", size());
 	settings.setValue("Ledger/listState", transactionsView->header()->saveState());
-	settings.setValue("Ledger/ascending", b_ascending); 
+	settings.setValue("Ledger/ascending", b_ascending);
 }
 
 void LedgerDialog::accountChanged() {
@@ -810,7 +812,7 @@ void LedgerDialog::accountChanged() {
 	QDesktopWidget desktop;
 	if(desktop.availableGeometry(this).width() > min_width_2 * 1.2) transactionsView->setMinimumWidth(b_loan ? min_width_2 : min_width_1);
 	ActionNewDebtInterest->setVisible(b_loan);
-	ActionNewDebtPayment->setVisible(b_loan); 
+	ActionNewDebtPayment->setVisible(b_loan);
 	updateTransactions(true);
 	reconcileOpeningEdit->setCurrency(account->currency());
 	reconcileChangeEdit->setCurrency(account->currency());
@@ -1012,7 +1014,7 @@ void LedgerDialog::printView() {
 	if(transs) first_date = transs->date();
 	bool run_print = true;
 	if(first_date.isValid()) {
-		QDialog *dialog = new QDialog(this, 0);
+		QDialog *dialog = new QDialog(this);
 		dialog->setWindowTitle(tr("Select Time Period"));
 		QVBoxLayout *box1 = new QVBoxLayout(dialog);
 		QGridLayout *grid = new QGridLayout();
@@ -1054,7 +1056,7 @@ void LedgerDialog::printView() {
 			htmldoc.setHtml(str);
 			htmldoc.print(&printer);
 		}
-	}	
+	}
 }
 void LedgerDialog::joinTransactions() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
@@ -1072,8 +1074,20 @@ void LedgerDialog::joinTransactions() {
 				if(!split) {
 					split = new MultiItemTransaction(budget, i->transaction()->date(), account);
 				}
-				if(split->associatedFile().isEmpty() && !trans->associatedFile().isEmpty()) {
-					split->setAssociatedFile(trans->associatedFile());
+				if(!trans->associatedFile().isEmpty()) {
+					if(split->associatedFile().isEmpty()) {
+						split->setAssociatedFile(trans->associatedFile());
+					} else {
+						QString str;
+						if((split->associatedFile().startsWith("\"") && split->associatedFile().endsWith("\"")) || (split->associatedFile().startsWith("\'") && split->associatedFile().endsWith("\'"))) str += split->associatedFile();
+						else if(split->associatedFile().contains("\"")) {str += "\'"; str += split->associatedFile(); str += "\'";}
+						else {str += "\""; str += split->associatedFile(); str += "\"";}
+						str += ", ";
+						if((trans->associatedFile().startsWith("\"") && trans->associatedFile().endsWith("\"")) || (trans->associatedFile().startsWith("\'") && trans->associatedFile().endsWith("\'"))) str += trans->associatedFile();
+						else if(trans->associatedFile().contains("\"")) {str += "\'"; str += trans->associatedFile(); str += "\'";}
+						else {str += "\""; str += trans->associatedFile(); str += "\"";}
+						split->setAssociatedFile(str);
+					}
 				}
 				if(use_payee) {
 					if(payee.isEmpty()) {
@@ -1112,7 +1126,7 @@ void LedgerDialog::splitUpTransaction() {
 }
 void LedgerDialog::transactionSelectionChanged() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
-	bool selected = !selection.isEmpty();	
+	bool selected = !selection.isEmpty();
 	bool b_join = selected;
 	bool b_split = selected;
 	bool b_edit = selected;
@@ -1128,7 +1142,7 @@ void LedgerDialog::transactionSelectionChanged() {
 			b_join = false;
 			if(b_split) b_split = (selection.count() == 1) && (i->splitTransaction()->type() != SPLIT_TRANSACTION_TYPE_LOAN);
 			if(b_file) b_file = (selection.count() == 1) && !i->splitTransaction()->associatedFile().isEmpty();
-			
+
 		} else if(!trans) {
 			if(selection.size() > 1) b_edit = false;
 			b_remove = false;
@@ -1235,24 +1249,24 @@ void LedgerDialog::remove() {
 			SplitTransaction *split = i->splitTransaction();
 			qDebug() << split->description();
 			budget->removeSplitTransaction(split, true);
-			mainWin->transactionRemoved(split);
+			mainWin->transactionRemoved(split, NULL, true);
 			delete split;
 		} else if(i->transaction()) {
 			Transaction *trans = i->transaction();
 			if(trans->parentSplit() && trans->parentSplit()->count() == 1) {
 				SplitTransaction *split = trans->parentSplit();
 				budget->removeSplitTransaction(split, true);
-				mainWin->transactionRemoved(split);
+				mainWin->transactionRemoved(split, NULL, true);
 				delete split;
 			} else if(trans->parentSplit() && trans->parentSplit()->type() != SPLIT_TRANSACTION_TYPE_LOAN && trans->parentSplit()->count() == 2) {
 				SplitTransaction *split = trans->parentSplit();
 				mainWin->splitUpTransaction(split);
 				budget->removeTransaction(trans, true);
-				mainWin->transactionRemoved(trans);
+				mainWin->transactionRemoved(trans, NULL, true);
 				delete trans;
 			} else {
 				budget->removeTransaction(trans, true);
-				mainWin->transactionRemoved(trans);
+				mainWin->transactionRemoved(trans, NULL, true);
 				delete trans;
 			}
 		}
@@ -1447,7 +1461,7 @@ void LedgerDialog::updateTransactions(bool update_reconciliation_date) {
 	int quantity = 0;
 	QDate curdate = QDate::currentDate();
 	bool b_reconciling = reconcileButton->isChecked();
-	
+
 	if(balance != 0.0) {
 		LedgerListViewItem *i = new LedgerListViewItem(NULL, NULL, transactionsView, "-", "-", tr("Opening balance", "Account balance"), "-", "-", QString(), QString(), QString(), QString(), account->currency()->formatValue(balance));
 		i->d_balance = balance;
@@ -1663,7 +1677,7 @@ void LedgerDialog::updateTransactions(bool update_reconciliation_date) {
 		transs = trans;
 		if(!transs || (split && (split->date() < trans->date() || (split->date() == trans->date() && split->timestamp() < trans->timestamp())))) transs = split;
 	}
-	
+
 	if(previous_date.isValid() && previous_date < QDate::currentDate()) previous_balance *= previous_date.daysTo(QDate::currentDate());
 	total_balance += previous_balance;
 	if(first_date.isValid() && first_date < QDate::currentDate()) total_balance /= (first_date.daysTo(QDate::currentDate()) + (previous_date == QDate::currentDate() ? 1 : 0));

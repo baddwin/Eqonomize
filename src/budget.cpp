@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006-2008, 2014, 2016-2019 by Hanna Knutsson            *
+ *   Copyright (C) 2006-2008, 2014, 2016-2020 by Hanna Knutsson            *
  *   hanna.knutsson@protonmail.com                                         *
  *                                                                         *
  *   This file is part of Eqonomize!.                                      *
@@ -172,7 +172,7 @@ bool is_zero(double value) {
 	return value < 0.0000001 && value > -0.0000001;
 }
 
-Budget::Budget() {	
+Budget::Budget() {
 	currencies.setAutoDelete(true);
 	expenses.setAutoDelete(true);
 	incomes.setAutoDelete(true);
@@ -457,7 +457,7 @@ void Budget::loadCurrenciesFile(QString filename, bool is_local) {
 	}
 
 	bool oldversion = (xml.attributes().value("version").toString() != QString(VERSION));
-	
+
 	int currency_errors = 0;
 
 	while(xml.readNextStartElement()) {
@@ -481,42 +481,42 @@ void Budget::loadCurrenciesFile(QString filename, bool is_local) {
 				currency_errors++;
 				delete currency;
 			}
-		
+
 		} else {
 			qCritical() << tr("Unknown XML element: \"%1\" at line %2, col %3").arg(xml.name().toString()).arg(xml.lineNumber()).arg(xml.columnNumber());
 			xml.skipCurrentElement();
 		}
 	}
-	
+
 	if(currency_errors > 0) {
 		qCritical() << tr("Unable to load %n currency/currencies.", "", currency_errors);
 	}
-	
+
 	currencies.sort();
 
 	if(xml.hasError()) {
 		qCritical() << tr("XML parse error: \"%1\" at line %2, col %3").arg(xml.errorString()).arg(xml.lineNumber()).arg(xml.columnNumber());
 	}
-	
+
 	file.close();
 
 	if(oldversion && is_local) {
 		QString error = saveCurrencies();
 		if(!error.isNull()) qCritical() << error;
 	}
-	
+
 }
 
 QString Budget::loadECBData(QByteArray data) {
-	
+
 	QXmlStreamReader xml(data);
-	
+
 	if(!xml.readNextStartElement()) {
 		return tr("XML parse error: \"%1\" at line %2, col %3").arg(xml.errorString()).arg(xml.lineNumber()).arg(xml.columnNumber());
 	}
-	
+
 	bool had_data = false;
-	
+
 	while(xml.readNextStartElement()) {
 		if(xml.name() == "Cube") {
 			while(xml.readNextStartElement()) {
@@ -524,7 +524,7 @@ QString Budget::loadECBData(QByteArray data) {
 					QXmlStreamAttributes attr = xml.attributes();
 					QDate date = QDate::fromString(attr.value("time").trimmed().toString(), Qt::ISODate);
 					while(xml.readNextStartElement()) {
-						if(xml.name() == "Cube") {							
+						if(xml.name() == "Cube") {
 							attr = xml.attributes();
 							QString code = attr.value("currency").trimmed().toString();
 							double exrate = attr.value("rate").toDouble();
@@ -563,20 +563,20 @@ QString Budget::loadECBData(QByteArray data) {
 		}
 		xml.skipCurrentElement();
 	}
-	
+
 	if(!had_data) return tr("No exchange rates found.");
-	
+
 	return QString();
 }
 
 QString Budget::loadMyCurrencyNetData(QByteArray data) {
-	
+
 	QJsonDocument jdoc = QJsonDocument::fromJson(data);
 	if(!jdoc.isArray()) return tr("No exchange rates found.");
 	QJsonArray jarr = jdoc.array();
-	
+
 	bool had_data = false;
-	
+
 	for(int i = 0; i < jarr.count(); i++) {
 		if(jarr[i].isObject()) {
 			QJsonObject jobj = jarr[i].toObject();
@@ -612,20 +612,20 @@ QString Budget::loadMyCurrencyNetData(QByteArray data) {
 			}
 		}
 	}
-	
+
 	if(!had_data) return tr("No exchange rates found.");
-	
+
 	return QString();
 }
 
 QString Budget::loadMyCurrencyNetHtml(QByteArray data) {
-	
+
 	Currency *cur_usd = findCurrency("USD");
 	if(!cur_usd) return tr("USD currency missing.");
 	double usd_rate = cur_usd->exchangeRate();
-	
+
 	bool had_data = false;
-	
+
 	int i = data.indexOf("class=\'country\'");
 	while(i >= 0) {
 		QString code, name;
@@ -686,14 +686,14 @@ QString Budget::loadMyCurrencyNetHtml(QByteArray data) {
 	}
 
 	if(!had_data) return tr("No exchange rates found.");
-	
+
 	return QString();
 }
 
 QString Budget::saveCurrencies() {
-	
+
 	QString filename = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + "/currencies.xml";
-	
+
 	QFileInfo info(filename);
 	if(info.isDir()) {
 		return tr("File is a directory");
@@ -714,7 +714,7 @@ QString Budget::saveCurrencies() {
 	xml.writeStartDocument();
 	xml.writeStartElement("Eqonomize");
 	xml.writeAttribute("version", VERSION);
-	
+
 	for(CurrencyList<Currency*>::const_iterator it = currencies.constBegin(); it != currencies.constEnd(); ++it) {
 		Currency *currency = *it;
 		xml.writeStartElement("currency");
@@ -731,7 +731,7 @@ QString Budget::saveCurrencies() {
 	if(!ofile.commit()) {
 		return tr("Error while writing file; file was not saved");
 	}
-	
+
 	return QString();
 }
 
@@ -756,7 +756,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 	if(s_versions.size() > 0) i_version[0] = s_versions[0].toInt();
 	if(s_versions.size() > 1) i_version[1] = s_versions[1].toInt();
 	if(s_versions.size() > 2) i_version[2] = s_versions[2].toInt();
-	
+
 	qint64 curtime = QDateTime::currentMSecsSinceEpoch() / 1000;
 
 	if(!merge) {
@@ -773,14 +773,17 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 	int category_errors = 0, account_errors = 0, transaction_errors = 0, security_errors = 0;
 
 	assetsAccounts_id[balancingAccount->id()] = balancingAccount;
-	
+
+	QHash<qlonglong, qlonglong> merge_transaction_ids;
+	QList<Transactions*> update_links_list;
+
 	Currency *cur = NULL, *prev_default_cur = default_currency;
 	if(default_currency_created) *default_currency_created = false;
-	
+
 	bool set_ids = false;
-	
+
 	if(!merge) o_sync->clear();
-	
+
 	i_budget_month = 1;
 
 	while(xml.readNextStartElement()) {
@@ -848,10 +851,16 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 			}
 			if(valid && strans) {
 				if(merge) {
+					qlonglong old_id = strans->id();
+					strans->setId(getNewId());
+					merge_transaction_ids[old_id] = strans->id();
+					if(strans->linksCount(false) > 0) update_links_list << strans;
 					strans->setId(getNewId());
 					strans->setFirstRevision(i_revision);
 					strans->setLastRevision(i_revision);
+					old_id = strans->transaction()->id();
 					strans->transaction()->setId(getNewId());
+					merge_transaction_ids[old_id] = strans->transaction()->id();
 					strans->transaction()->setFirstRevision(i_revision);
 					strans->transaction()->setLastRevision(i_revision);
 				} else {
@@ -1097,7 +1106,10 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					split = NULL;
 				} else if(split) {
 					if(merge) {
+						qlonglong old_id = split->id();
 						split->setId(getNewId());
+						merge_transaction_ids[old_id] = split->id();
+						if(split->linksCount(false) > 0) update_links_list << split;
 						split->setFirstRevision(i_revision);
 						split->setLastRevision(i_revision);
 					} else {
@@ -1115,7 +1127,10 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					for(int i = 0; i < c; i++) {
 						trans = split->at(i);
 						if(merge) {
+							qlonglong old_id = trans->id();
 							trans->setId(getNewId());
+							merge_transaction_ids[old_id] = trans->id();
+							if(trans->linksCount(false) > 0) update_links_list << trans;
 							trans->setFirstRevision(i_revision);
 							trans->setLastRevision(i_revision);
 						} else {
@@ -1162,7 +1177,10 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				}
 			} else if(trans) {
 				if(merge) {
+					qlonglong old_id = trans->id();
 					trans->setId(getNewId());
+					merge_transaction_ids[old_id] = trans->id();
+					if(trans->linksCount(false) > 0) update_links_list << trans;
 					trans->setFirstRevision(i_revision);
 					trans->setLastRevision(i_revision);
 				} else {
@@ -1284,7 +1302,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				account_errors++;
 				delete account;
 			}
-		
+
 		} else if(xml.name() == "security") {
 			bool valid = true;
 			Security *security = new Security(this, &xml, &valid);
@@ -1321,7 +1339,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 		cur = defaultCurrency();
 		if(default_currency_created) *default_currency_created = b;
 	}
-	
+
 	if(merge) default_currency = prev_default_cur;
 
 	if (xml.hasError()) {
@@ -1333,7 +1351,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 	expensesAccounts_id.clear();
 	assetsAccounts_id.clear();
 	securities_id.clear();
-	
+
 	if(set_ids) {
 		std::sort(transactions.begin(), transactions.end(), transaction_list_less_than_stamp);
 		std::sort(scheduledTransactions.begin(), scheduledTransactions.end(), schedule_list_less_than_stamp);
@@ -1378,7 +1396,17 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 			}
 		}
 	}
-	
+
+	for(int i = 0; i < update_links_list.count(); i++) {
+		Transactions *trans = update_links_list.at(i);
+		int n = trans->linksCount(false);
+		for(int i2 = 0; i2 < n; i2++) {
+			qlonglong new_id = merge_transaction_ids[trans->getLinkId(0, false)];
+			trans->removeLink(0);
+			trans->addLinkId(new_id);
+		}
+	}
+
 	i_revision++;
 
 	expenses.sort();
@@ -1406,7 +1434,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 	securities.sort();
 
 	tags.sort(Qt::CaseInsensitive);
-	
+
 	if(account_errors > 0) {
 		if(!errors.isEmpty()) errors += '\n';
 		errors += tr("Unable to load %n account(s).", "", account_errors);
@@ -1453,7 +1481,7 @@ int Budget::fileRevision(QString filename, QString &error) const {
 	file.close();
 
 	error = QString();
-	
+
 	return file_revision;
 
 }
@@ -1482,9 +1510,9 @@ bool Budget::isUnsynced(QString filename, QString &error, int synced_revision) c
 	int file_revision = xml.attributes().value("revision").toInt();
 	if(file_revision <= 0) file_revision = 1;
 	file.close();
-	
+
 	error = QString();
-	
+
 	return file_revision > synced_revision;
 
 }
@@ -1508,7 +1536,13 @@ bool Budget::sync(QString &error, QString &errors, bool do_upload, bool on_load)
 		command.replace("%u", o_sync->url);
 		QEventLoop loop;
 		syncProcess = new QProcess();
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
+		QStringList list = QProcess::splitCommand(command);
+		if(list.isEmpty()) return "Empty command";
+		syncProcess->start(list.takeFirst(), list);
+#else
 		syncProcess->start(command);
+#endif
 		QObject::connect(syncProcess, SIGNAL(finished(int, QProcess::ExitStatus)), &loop, SLOT(quit()));
 		loop.exec();
 		if(syncProcess->exitStatus() != QProcess::NormalExit || syncProcess->exitCode() != 0) {
@@ -1582,7 +1616,13 @@ QString Budget::syncUpload(QString filename) {
 	command.replace("%u", o_sync->url);
 	QEventLoop loop;
 	syncProcess = new QProcess();
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 15, 0))
+	QStringList list = QProcess::splitCommand(command);
+	if(list.isEmpty()) return "Empty command";
+	syncProcess->start(list.takeFirst(), list);
+#else
 	syncProcess->start(command);
+#endif
 	QObject::connect(syncProcess, SIGNAL(finished(int, QProcess::ExitStatus)), &loop, SLOT(quit()));
 	loop.exec();
 	if(syncProcess->exitStatus() != QProcess::NormalExit || syncProcess->exitCode() != 0) {
@@ -1590,11 +1630,12 @@ QString Budget::syncUpload(QString filename) {
 	} else {
 		o_sync->revision = i_revision;
 	}
-	
+
 	syncProcess->deleteLater();
 	syncProcess = NULL;
 	return error;
 }
+
 bool Budget::autosyncEnabled() const {return o_sync->autosync && o_sync->isComplete();}
 
 QString Budget::syncFile(QString filename, QString &errors, int synced_revision) {
@@ -1619,23 +1660,25 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 	if(file_revision <= 0) file_revision = 1;
 	qlonglong file_last_id = xml.attributes().value("lastid").toLongLong();
 	if(file_last_id < 0) file_last_id = 0;
-	
+
 	int revision_diff = file_revision - synced_revision;
 	if(revision_diff <= 0) {
 		file.close();
 		return QString();
 	}
-	
+
 	last_id = file_last_id;
-	
+
 	i_revision += revision_diff;
 	i_opened_revision = i_revision;
-	
+
 	errors = QString();
 	int category_errors = 0, account_errors = 0, transaction_errors = 0, security_errors = 0;
 
 	assetsAccounts_id[balancingAccount->id()] = balancingAccount;
-	
+
+	QList<Transactions*> update_ids_list;
+
 	QHash<qlonglong, IncomesAccount*> old_incomesAccounts_id;
 	QHash<qlonglong, ExpensesAccount*> old_expensesAccounts_id;
 	QHash<qlonglong, AssetsAccount*> old_assetsAccounts_id;
@@ -1678,27 +1721,28 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 	}
 	QHash<qlonglong, ScheduledTransaction*> scheduleds_id, file_scheduleds_id;
 	QHash<qlonglong, Transactions*> scheduleds_trans_id, file_scheduleds_trans_id;
+	QHash<qlonglong, Transactions*> linked_transactions;
 	for(ScheduledTransactionList<ScheduledTransaction*>::const_iterator it = scheduledTransactions.constBegin(); it != scheduledTransactions.constEnd(); ++it) {
 		if((*it)->lastRevision() > synced_revision) (*it)->setLastRevision((*it)->lastRevision() + revision_diff);
+		if((*it)->linksCount(false) > 0) linked_transactions[(*it)->id()] = *it;
 		if((*it)->firstRevision() > synced_revision) {
-			(*it)->setFirstRevision((*it)->firstRevision() + revision_diff);
-			last_id++; (*it)->setId(last_id);
+			update_ids_list << (*it);
 		} else {
 			scheduleds_id[(*it)->id()] = *it;
 		}
 		if((*it)->transaction()->lastRevision() > synced_revision) (*it)->transaction()->setLastRevision((*it)->transaction()->lastRevision() + revision_diff);
+		if((*it)->transaction()->linksCount(false) > 0) linked_transactions[(*it)->transaction()->id()] = (*it)->transaction();
 		if((*it)->transaction()->firstRevision() > synced_revision) {
-			(*it)->transaction()->setFirstRevision((*it)->firstRevision() + revision_diff);
-			last_id++; (*it)->transaction()->setId(last_id);
+			update_ids_list << (*it)->transaction();
 		}
 		if((*it)->lastRevision() > synced_revision && (*it)->transaction()->firstRevision() <= synced_revision) scheduleds_trans_id[(*it)->transaction()->id()] = (*it)->transaction();
 	}
 	QHash<qlonglong, SplitTransaction*> splits_id, file_splits_id;
 	for(SplitTransactionList<SplitTransaction*>::const_iterator it = splitTransactions.constBegin(); it != splitTransactions.constEnd(); ++it) {
 		if((*it)->lastRevision() > synced_revision) (*it)->setLastRevision((*it)->lastRevision() + revision_diff);
+		if((*it)->linksCount(false) > 0) linked_transactions[(*it)->id()] = *it;
 		if((*it)->firstRevision() > synced_revision) {
-			(*it)->setFirstRevision((*it)->firstRevision() + revision_diff);
-			last_id++; (*it)->setId(last_id);
+			update_ids_list << (*it);
 		}
 		splits_id[(*it)->id()] = *it;
 	}
@@ -1715,12 +1759,37 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 	QHash<qlonglong, Transaction*> transactions_id, file_transactions_id;
 	for(TransactionList<Transaction*>::const_iterator it = transactions.constBegin(); it != transactions.constEnd(); ++it) {
 		if((*it)->lastRevision() > synced_revision) (*it)->setLastRevision((*it)->lastRevision() + revision_diff);
+		bool b_loan = (*it)->parentSplit() && (*it)->parentSplit()->type() == SPLIT_TRANSACTION_TYPE_LOAN;
+		if(!b_loan && (*it)->linksCount(false)) linked_transactions[(*it)->id()] = *it;
 		if((*it)->firstRevision() > synced_revision) {
-			(*it)->setFirstRevision((*it)->firstRevision() + revision_diff);
-			if(!(*it)->parentSplit() || (*it)->parentSplit()->type() != SPLIT_TRANSACTION_TYPE_LOAN) {last_id++; (*it)->setId(last_id);}
-		} else if(!(*it)->parentSplit() || (*it)->parentSplit()->type() != SPLIT_TRANSACTION_TYPE_LOAN) transactions_id[(*it)->id()] = *it;
+			if(!b_loan) {
+				update_ids_list << (*it);
+			} else {
+				(*it)->setFirstRevision((*it)->firstRevision() + revision_diff);
+			}
+		} else if(!b_loan) {
+			transactions_id[(*it)->id()] = *it;
+		}
 	}
-	
+
+	for(int i = 0; i < update_ids_list.count(); i++) {
+		Transactions *trans = update_ids_list.at(i);
+		trans->setFirstRevision(trans->firstRevision() + revision_diff);
+		last_id++;
+		qlonglong old_id = trans->id();
+		if(old_id > 0 && trans->linksCount(false) > 0) {
+			for(int i = 0; i < trans->linksCount(); i++) {
+				qlonglong lid = trans->getLinkId(i, false);
+				QHash<qlonglong, Transactions*>::iterator it = linked_transactions.find(lid);
+				if(it != linked_transactions.end()) {
+					(*it)->removeLink(trans);
+					(*it)->addLinkId(last_id);
+				}
+			}
+		}
+		trans->setId(last_id);
+	}
+
 	QList<Account*> deleted_accounts;
 	QList<Security*> deleted_securities;
 
@@ -1736,29 +1805,41 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 			ScheduledTransaction *strans = new ScheduledTransaction(this, &xml, &valid);
 			if(valid && strans) {
 				QHash<qlonglong, ScheduledTransaction*>::iterator it = scheduleds_id.find(strans->id());
-			 	if(it == scheduleds_id.end()) {
-			 		if(strans->lastRevision() > synced_revision) {
-			 			QHash<qlonglong, Transaction*>::iterator it2 = transactions_id.find(strans->transaction()->id());
-					 	if(it2 != transactions_id.end() && (*it2)->lastRevision() > strans->lastRevision()) {
-					 		delete strans;
-					 	} else {
-					 		QHash<qlonglong, SplitTransaction*>::iterator it3 = splits_id.find(strans->transaction()->id());
-						 	if(it3 != splits_id.end() && (*it3)->lastRevision() > strans->lastRevision()) {
-						 		delete strans;
-						 	} else {
-					 			addScheduledTransaction(strans);
-					 		}
-				 		}
-			 		} else delete strans;
-			 	} else {
-			 		if((*it)->lastRevision() >= strans->lastRevision()) {
-			 			delete strans;
-			 		} else {
-			 			removeScheduledTransaction(*it);
+				if(it == scheduleds_id.end()) {
+					if(strans->lastRevision() > synced_revision) {
+						QHash<qlonglong, Transaction*>::iterator it2 = transactions_id.find(strans->transaction()->id());
+						if(it2 != transactions_id.end() && (*it2)->lastRevision() > strans->lastRevision()) {
+							delete strans;
+						} else {
+							QHash<qlonglong, SplitTransaction*>::iterator it3 = splits_id.find(strans->transaction()->id());
+							if(it3 != splits_id.end() && (*it3)->lastRevision() > strans->lastRevision()) {
+								delete strans;
+							} else {
+								addScheduledTransaction(strans);
+								for(int i = 0; i < strans->linksCount(false); i++) {
+									Transactions *ltrans = strans->getLink(i, false);
+									if(ltrans) ltrans->addLink(strans->transaction());
+								}
+							}
+						}
+					} else delete strans;
+				} else {
+					if((*it)->lastRevision() >= strans->lastRevision()) {
+						delete strans;
+					} else {
+						for(int i = 0; i < (*it)->linksCount(false); i++) {
+							Transactions *ltrans = (*it)->getLink(i, false);
+							if(ltrans) ltrans->removeLink((*it)->transaction());
+						}
+						removeScheduledTransaction(*it);
 						addScheduledTransaction(strans);
-			 		}
-			 		scheduleds_id.remove(it.key());
-			 	}
+						for(int i = 0; i < strans->linksCount(false); i++) {
+							Transactions *ltrans = strans->getLink(i, false);
+							if(ltrans) ltrans->addLink(strans->transaction());
+						}
+					}
+					scheduleds_id.remove(it.key());
+				}
 			} else if(!valid) {
 				transaction_errors++;
 				if(strans) delete strans;
@@ -1781,18 +1862,18 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 				SecurityTrade *ts = new SecurityTrade(this, &xml, &valid);
 				if(valid && ts) {
 					QHash<qlonglong, SecurityTrade*>::iterator it = securitytrades_id.find(ts->id);
-				 	if(it == securitytrades_id.end()) {
-				 		if(ts->last_revision > synced_revision) addSecurityTrade(ts);
-				 		else delete ts;
-				 	} else {
-				 		if((*it)->last_revision >= ts->last_revision) {
-				 			delete ts;
-				 		} else {
-				 			removeSecurityTrade(*it);
+					if(it == securitytrades_id.end()) {
+						if(ts->last_revision > synced_revision) addSecurityTrade(ts);
+						else delete ts;
+					} else {
+						if((*it)->last_revision >= ts->last_revision) {
+							delete ts;
+						} else {
+							removeSecurityTrade(*it);
 							addSecurityTrade(ts);
-				 		}
-				 		securitytrades_id.remove(it.key());
-				 	}
+						}
+						securitytrades_id.remove(it.key());
+					}
 				} else {
 					transaction_errors++;
 					if(ts) delete ts;
@@ -1824,6 +1905,20 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 						if(it == splits_id.end()) {
 							if(split->lastRevision() > synced_revision && !scheduleds_trans_id.contains(split->id())) {
 								addSplitTransaction(split);
+								for(int i = 0; i < split->linksCount(false); i++) {
+									Transactions *ltrans = split->getLink(i, false);
+									if(ltrans) ltrans->addLink(split);
+								}
+								if(split->type() != SPLIT_TRANSACTION_TYPE_LOAN) {
+									int c = split->count();
+									for(int i = 0; i < c; i++) {
+										trans = split->at(i);
+										for(int i2 = 0; i2 < trans->linksCount(false); i2++) {
+											Transactions *ltrans = trans->getLink(i2, false);
+											if(ltrans) ltrans->addLink(trans);
+										}
+									}
+								}
 							} else {
 								if(split->type() != SPLIT_TRANSACTION_TYPE_LOAN) split->clear(true);
 								delete split;
@@ -1842,14 +1937,33 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 										trans = split->at(i);
 										QHash<qlonglong, Transaction*>::iterator it = transactions_id.find(trans->id());
 										if(it == transactions_id.end()) {
-											if(trans->lastRevision() > synced_revision && !scheduleds_trans_id.contains(trans->id())) addTransaction(trans);
-											else {split->removeTransaction(trans);  i--; c--;}
+											if(trans->lastRevision() > synced_revision && !scheduleds_trans_id.contains(trans->id())) {
+												addTransaction(trans);
+												for(int i2 = 0; i2 < trans->linksCount(false); i2++) {
+													Transactions *ltrans = trans->getLink(i2, false);
+													if(ltrans) ltrans->addLink(trans);
+												}
+											} else {
+												split->removeTransaction(trans);
+												i--;
+												c--;
+											}
 										} else {
 											if((*it)->lastRevision() > synced_revision && (*it)->lastRevision() >= trans->lastRevision()) {
-												split->removeTransaction(trans); i--; c--;
+												split->removeTransaction(trans);
+												i--;
+												c--;
 											} else {
+												for(int i2 = 0; i2 < (*it)->linksCount(false); i2++) {
+													Transactions *ltrans = (*it)->getLink(i2, false);
+													if(ltrans) ltrans->removeLink(*it);
+												}
 												removeTransaction(*it);
 												addTransaction(trans);
+												for(int i2 = 0; i2 < trans->linksCount(false); i2++) {
+													Transactions *ltrans = trans->getLink(i2, false);
+													if(ltrans) ltrans->addLink(trans);
+												}
 											}
 											transactions_id.remove(it.key());
 										}
@@ -1870,22 +1984,34 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 				if(!valid) {
 					transaction_errors++;
 				} else {
-				 	QHash<qlonglong, Transaction*>::iterator it = transactions_id.find(trans->id());
-				 	if(it == transactions_id.end()) {
-				 		if(trans->lastRevision() > synced_revision && !scheduleds_trans_id.contains(trans->id())) {
-				 			addTransaction(trans);
-				 		} else {
-				 			delete trans;
-				 		}
-				 	} else {
-				 		if((*it)->lastRevision() >= trans->lastRevision()) {
-				 			delete trans;
-				 		} else {
-				 			removeTransaction(*it);
+					QHash<qlonglong, Transaction*>::iterator it = transactions_id.find(trans->id());
+					if(it == transactions_id.end()) {
+						if(trans->lastRevision() > synced_revision && !scheduleds_trans_id.contains(trans->id())) {
 							addTransaction(trans);
-				 		}
-				 		transactions_id.remove(it.key());
-				 	}
+							for(int i = 0; i < trans->linksCount(false); i++) {
+								Transactions *ltrans = trans->getLink(i, false);
+								if(ltrans) ltrans->addLink(trans);
+							}
+						} else {
+							delete trans;
+						}
+					} else {
+						if((*it)->lastRevision() >= trans->lastRevision()) {
+							delete trans;
+						} else {
+							for(int i = 0; i < (*it)->linksCount(false); i++) {
+								Transactions *ltrans = (*it)->getLink(i, false);
+								if(ltrans) ltrans->removeLink(*it);
+							}
+							removeTransaction(*it);
+							addTransaction(trans);
+							for(int i = 0; i < trans->linksCount(false); i++) {
+								Transactions *ltrans = trans->getLink(i, false);
+								if(ltrans) ltrans->addLink(trans);
+							}
+						}
+						transactions_id.remove(it.key());
+					}
 				}
 			}
 		} else if(xml.name() == "category") {
@@ -2134,12 +2260,12 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 	for(QList<Account*>::const_iterator it = deleted_accounts.constBegin(); it != deleted_accounts.constEnd(); ++it) {
 		if(!accountHasTransactions(*it)) removeAccount(*it);
 	}
-	
+
 	incomesAccounts_id.clear();
 	expensesAccounts_id.clear();
 	assetsAccounts_id.clear();
 	securities_id.clear();
-	
+
 	expenses.sort();
 	incomes.sort();
 	transfers.sort();
@@ -2163,7 +2289,7 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 	assetsAccounts.sort();
 	accounts.sort();
 	securities.sort();
-	
+
 	if(account_errors > 0) {
 		if(!errors.isEmpty()) errors += '\n';
 		errors += tr("Unable to load %n account(s).", "", account_errors);
@@ -2191,7 +2317,7 @@ QString Budget::saveFile(QString filename, QFile::Permissions permissions, bool 
 	if(info.isDir()) {
 		return tr("File is a directory");
 	}
-	
+
 	QSaveFile ofile(filename);
 	ofile.open(QIODevice::WriteOnly);
 	ofile.setPermissions(permissions);
@@ -2199,21 +2325,21 @@ QString Budget::saveFile(QString filename, QFile::Permissions permissions, bool 
 		ofile.cancelWriting();
 		return tr("Couldn't open file for writing");
 	}
-	
+
 	if(!is_backup) i_opened_revision = i_revision;
-	
+
 	QXmlStreamWriter xml(&ofile);
 	xml.setCodec("UTF-8");
 	xml.setAutoFormatting(true);
 	xml.setAutoFormattingIndent(-1);
-	
+
 	xml.writeStartDocument();
 	xml.writeDTD("<!DOCTYPE EqonomizeDoc>");
 	xml.writeStartElement("EqonomizeDoc");
 	xml.writeAttribute("version", VERSION);
 	xml.writeAttribute("revision", QString::number(i_revision));
 	xml.writeAttribute("lastid", QString::number(last_id));
-	
+
 	if(o_sync->isComplete()) {
 		xml.writeStartElement("synchronization");
 		xml.writeAttribute("type", "url");
@@ -2336,7 +2462,7 @@ QString Budget::saveFile(QString filename, QFile::Permissions permissions, bool 
 			xml.writeEndElement();
 		}
 	}
-	
+
 	xml.writeEndElement();
 
 	if(ofile.error() != QFile::NoError) {
@@ -2506,7 +2632,7 @@ void Budget::removeScheduledTransaction(ScheduledTransaction *strans, bool keep)
 	 if(strans->transactiontype() == TRANSACTION_TYPE_SECURITY_BUY || strans->transactiontype() == TRANSACTION_TYPE_SECURITY_SELL) {
 		((SecurityTransaction*) strans->transaction())->security()->scheduledTransactions.removeRef(strans);
 	 } else if(strans->transactiontype() == TRANSACTION_TYPE_INCOME && ((Income*) strans->transaction())->security()) {
-	 	if(strans->transactionsubtype() == TRANSACTION_SUBTYPE_REINVESTED_DIVIDEND) ((Income*) strans->transaction())->security()->scheduledReinvestedDividends.removeRef(strans);
+		if(strans->transactionsubtype() == TRANSACTION_SUBTYPE_REINVESTED_DIVIDEND) ((Income*) strans->transaction())->security()->scheduledReinvestedDividends.removeRef(strans);
 		else ((Income*) strans->transaction())->security()->scheduledDividends.removeRef(strans);
 	}
 	if(keep) scheduledTransactions.setAutoDelete(false);
@@ -3001,10 +3127,10 @@ int daysPerYear(long int year, int basis = 1) {
 		}
 		case 2: {
 			return 360;
-		}		
+		}
 		case 3: {
 			return 365;
-		} 
+		}
 		case 4: {
 			return 360;
 		}
@@ -3116,7 +3242,7 @@ QString Budget::budgetYearString(int year, bool short_format) const {
 QDate Budget::firstBudgetDayOfYear(QDate date) const {
 	if(i_budget_month == 1 && i_budget_day == 1) return QDate(date.year(), 1, 1);
 	int i_year = budgetYear(date);
-	if(i_budget_month == 1 && (i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15))) i_year--; 
+	if(i_budget_month == 1 && (i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15))) i_year--;
 	int ibd = i_budget_day;
 	if(i_budget_day <= 0) ibd = daysPerMonth(i_budget_month == 1 ? 12 : i_budget_month - 1, i_year) + i_budget_day;
 	return QDate(i_year, ibd > 15 ? (i_budget_month == 1 ? 12 : i_budget_month - 1) : i_budget_month, ibd);
@@ -3124,7 +3250,7 @@ QDate Budget::firstBudgetDayOfYear(QDate date) const {
 QDate Budget::lastBudgetDayOfYear(QDate date) const {
 	if(i_budget_month == 1 && i_budget_day == 1) return QDate(date.year(), 12, 31);
 	int i_year = budgetYear(date);
-	if(i_budget_month == 1 && (i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15))) i_year--; 
+	if(i_budget_month == 1 && (i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15))) i_year--;
 	int ibd = i_budget_day;
 	if(i_budget_day <= 0) ibd = daysPerMonth(i_budget_month == 1 ? 12 : i_budget_month - 1, i_year + 1) + i_budget_day;
 	return QDate(i_year + 1, ibd > 15 ? (i_budget_month == 1 ? 12 : i_budget_month - 1) : i_budget_month, ibd).addDays(-1);
@@ -3138,20 +3264,20 @@ bool Budget::isLastBudgetDay(const QDate &date) const {
 void Budget::addBudgetMonthsSetLast(QDate &date, int months) const {
 	if(i_budget_day <= 0) {
 		int dfl = date.daysInMonth() - date.day();
-		date = date.addMonths(months); 
+		date = date.addMonths(months);
 		if(date.daysInMonth() > dfl) date.setDate(date.year(), date.month(), date.daysInMonth() - dfl);
 	} else {
-		date = date.addMonths(months); 
+		date = date.addMonths(months);
 	}
 	date = lastBudgetDay(date);
 }
 void Budget::addBudgetMonthsSetFirst(QDate &date, int months) const {
 	if(i_budget_day <= 0) {
 		int dfl = date.daysInMonth() - date.day();
-		date = date.addMonths(months); 
+		date = date.addMonths(months);
 		if(date.daysInMonth() > dfl) date.setDate(date.year(), date.month(), date.daysInMonth() - dfl);
 	} else {
-		date = date.addMonths(months); 
+		date = date.addMonths(months);
 	}
 	date = firstBudgetDay(date);
 }
@@ -3420,4 +3546,18 @@ QString Budget::findTag(const QString &tag) {
 	return QString();
 }
 void Budget::setRecordNewTags(bool rnt) {b_record_new_tags = rnt;}
+
+Transactions *Budget::getTransaction(qlonglong lid) {
+	for(TransactionList<Transaction*>::const_iterator it = transactions.constBegin(); it != transactions.constEnd(); ++it) {
+		if((*it)->id() == lid) return *it;
+	}
+	for(TransactionList<SplitTransaction*>::const_iterator it = splitTransactions.constBegin(); it != splitTransactions.constEnd(); ++it) {
+		if((*it)->id() == lid) return *it;
+	}
+	for(TransactionList<ScheduledTransaction*>::const_iterator it = scheduledTransactions.constBegin(); it != scheduledTransactions.constEnd(); ++it) {
+		if((*it)->id() == lid) return *it;
+		if((*it)->transaction() && (*it)->transaction()->id() == lid) return *it;
+	}
+	return NULL;
+}
 

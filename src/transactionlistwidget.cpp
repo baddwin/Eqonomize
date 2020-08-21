@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006-2008, 2014, 2016 by Hanna Knutsson                 *
+ *   Copyright (C) 2006-2008, 2014, 2016-2020 by Hanna Knutsson            *
  *   hanna.knutsson@protonmail.com                                         *
  *                                                                         *
  *   This file is part of Eqonomize!.                                      *
@@ -88,7 +88,7 @@ TransactionListWidget::TransactionListWidget(bool extra_parameters, int transact
 
 	current_value = 0.0;
 	current_quantity = 0.0;
-	
+
 	key_event = NULL;
 
 	selected_trans = NULL;
@@ -179,9 +179,9 @@ TransactionListWidget::TransactionListWidget(bool extra_parameters, int transact
 	tabs = new QTabWidget(this);
 	tabs->setSizePolicy(QSizePolicy::Minimum, QSizePolicy::Minimum);
 
-	editWidget = new TransactionEditWidget(true, b_extra, transtype, NULL, false, NULL, SECURITY_SHARES_AND_QUOTATION, false, budget, this, true);	
+	editWidget = new TransactionEditWidget(true, b_extra, transtype, NULL, false, NULL, SECURITY_SHARES_AND_QUOTATION, false, budget, this, true);
 	editInfoLabel = new QLabel(QString());
-	editWidget->bottomLayout()->addWidget(editInfoLabel);
+	editWidget->bottomLayout()->addWidget(editInfoLabel, 1);
 	QDialogButtonBox *buttons = new QDialogButtonBox();
 	editWidget->bottomLayout()->addWidget(buttons);
 	addButton = buttons->addButton(tr("Add"), QDialogButtonBox::ActionRole);
@@ -221,13 +221,14 @@ TransactionListWidget::TransactionListWidget(bool extra_parameters, int transact
 	connect(transactionsView, SIGNAL(customContextMenuRequested(const QPoint&)), this, SLOT(popupListMenu(const QPoint&)));
 	connect(transactionsView, SIGNAL(itemDoubleClicked(QTreeWidgetItem*, int)), this, SLOT(transactionExecuted(QTreeWidgetItem*)));
 	connect(transactionsView, SIGNAL(returnPressed(QTreeWidgetItem*)), this, SLOT(transactionExecuted(QTreeWidgetItem*)));
-	
+
 	connect(editWidget, SIGNAL(accountAdded(Account*)), this, SIGNAL(accountAdded(Account*)));
 	connect(editWidget, SIGNAL(currenciesModified()), this, SIGNAL(currenciesModified()));
 	connect(editWidget, SIGNAL(newLoanRequested()), this, SLOT(newTransactionWithLoan()));
 	connect(editWidget, SIGNAL(multipleAccountsRequested()), this, SLOT(newMultiAccountTransaction()));
 	connect(editWidget, SIGNAL(propertyChanged()), this, SLOT(updateClearButton()));
 	connect(editWidget, SIGNAL(tagAdded(QString)), this, SIGNAL(tagAdded(QString)));
+	connect(editInfoLabel, SIGNAL(linkActivated(const QString&)), this, SLOT(editSplitTransaction()));
 
 }
 
@@ -364,6 +365,8 @@ void TransactionListWidget::popupListMenu(const QPoint &p) {
 		listPopupMenu->addAction(mainWin->ActionSplitUpTransaction);
 		listPopupMenu->addSeparator();
 		listPopupMenu->addAction(mainWin->ActionTags);
+		listPopupMenu->addAction(mainWin->ActionLinks);
+		listPopupMenu->addAction(mainWin->ActionCreateLink);
 		listPopupMenu->addAction(mainWin->ActionSelectAssociatedFile);
 		listPopupMenu->addAction(mainWin->ActionOpenAssociatedFile);
 		listPopupMenu->addAction(mainWin->ActionEditTimestamp);
@@ -654,6 +657,53 @@ void TransactionListWidget::editTimestamp() {
 		}
 	}
 }
+void TransactionListWidget::createLink(bool link_to) {
+	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
+	if(selection.count() >= 1) {
+		QList<Transactions*> transactions;
+		for(int index = 0; index < selection.count(); index++) {
+			TransactionListViewItem *i = (TransactionListViewItem*) selection.at(index);
+			if(i->scheduledTransaction()) transactions << i->scheduledTransaction();
+			else if(i->splitTransaction()) transactions << i->splitTransaction();
+			else if(i->transaction()) transactions << i->transaction();
+		}
+		for(int index = 0; index < transactions.count(); index++) {
+			Transactions *itrans = transactions.at(index);
+			if(itrans->generaltype() == GENERAL_TRANSACTION_TYPE_SINGLE) {
+				Transaction *trans = (Transaction*) itrans;
+				if(trans->parentSplit()) {
+					SplitTransaction *split = trans->parentSplit();
+					if(split->type() == SPLIT_TRANSACTION_TYPE_LOAN) {
+						transactions.replace(index, split);
+						for(int i = index + 1; i < transactions.count();) {
+							if(transactions.at(i)->generaltype() == GENERAL_TRANSACTION_TYPE_SINGLE && ((Transaction*) transactions.at(i))->parentSplit() == split) {
+								transactions.removeAt(i);
+							} else {
+								i++;
+							}
+						}
+					} else {
+						int n = split->count();
+						bool b = true;
+						for(int i = 0; i < n; i++) {
+							if(!transactions.contains(split->at(i))) {
+								b = false;
+								break;
+							}
+						}
+						if(b) {
+							transactions.replace(index, split);
+							for(int i = 0; i < n; i++) {
+								transactions.removeAll(split->at(i));
+							}
+						}
+					}
+				}
+			}
+		}
+		mainWin->createLink(transactions, link_to);
+	}
+}
 void TransactionListWidget::modifyTags() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
 	if(selection.count() >= 1) {
@@ -701,7 +751,7 @@ void TransactionListWidget::editTransaction() {
 		budget->setRecordNewAccounts(true);
 		budget->resetDefaultCurrencyChanged();
 		budget->resetCurrenciesModified();
-		
+
 		bool warned1 = false, warned2 = false, warned3 = false, warned4 = false, warned5 = false;
 		MultipleTransactionsEditDialog *dialog = new MultipleTransactionsEditDialog(b_extra, transtype, budget, this, true);
 		TransactionListViewItem *i = (TransactionListViewItem*) transactionsView->currentItem();
@@ -1217,7 +1267,10 @@ void TransactionListWidget::splitUpTransaction() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
 	if(selection.count() >= 1) {
 		TransactionListViewItem *i = (TransactionListViewItem*) selection.first();
-		if(i->transaction() && i->transaction()->parentSplit()) {
+		if(i->splitTransaction()) {
+			mainWin->splitUpTransaction(i->splitTransaction());
+			transactionSelectionChanged();
+		} else if(i->transaction() && i->transaction()->parentSplit()) {
 			mainWin->splitUpTransaction(i->transaction()->parentSplit());
 			transactionSelectionChanged();
 		}
@@ -1225,50 +1278,149 @@ void TransactionListWidget::splitUpTransaction() {
 }
 void TransactionListWidget::joinTransactions() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
-	MultiItemTransaction *split = NULL;
+	SplitTransaction *split = NULL;
 	QString payee;
 	bool use_payee = true;
 	QList<Transaction*> sel_bak;
+	int b_multiaccount = -1;
+	QString description;
+	bool different_descriptions = false, different_dates = false;
+	Account *account = NULL, *category = NULL;
+	QDate date;
 	for(int index = 0; index < selection.size(); index++) {
 		TransactionListViewItem *i = (TransactionListViewItem*) selection.at(index);
 		Transaction *trans = i->transaction();
 		if(trans && !i->scheduledTransaction() && !i->splitTransaction() && !trans->parentSplit()) {
-			sel_bak << trans;
-			if(!split) {
-				if((trans->type() == TRANSACTION_TYPE_SECURITY_BUY || trans->type() == TRANSACTION_TYPE_SECURITY_SELL) && ((SecurityTransaction*) trans)->account()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) ((SecurityTransaction*) trans)->account());
-				else if(trans->type() == TRANSACTION_TYPE_TRANSFER && selection.size() > index + 1) {
-					TransactionListViewItem *i_next = (TransactionListViewItem*) selection.at(index + 1);
-					Transaction *trans_next = i_next->transaction();
-					if(trans_next && !i_next->scheduledTransaction() && !i_next->splitTransaction() && !trans_next->parentSplit()) {
-						if((trans_next->type() == TRANSACTION_TYPE_SECURITY_BUY || trans_next->type() == TRANSACTION_TYPE_SECURITY_SELL) && ((SecurityTransaction*) trans_next)->account()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) ((SecurityTransaction*) trans_next)->account());
-						else if(trans->type() == TRANSACTION_TYPE_TRANSFER) {
-							if(trans->fromAccount() == trans_next->toAccount() || trans->fromAccount() == trans_next->fromAccount()) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
-							else if(trans->toAccount() == trans_next->toAccount() || trans->toAccount() == trans_next->fromAccount()) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->toAccount());
-							else split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
-						} else if(trans_next->fromAccount()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans_next->fromAccount());
-						else split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans_next->toAccount());
+			if(trans->type() != transtype || (trans->type() != TRANSACTION_TYPE_EXPENSE && trans->type() != TRANSACTION_TYPE_INCOME)) {
+				b_multiaccount = 0;
+				break;
+			} else if(!account) {
+				if(trans->fromAccount()->type() == ACCOUNT_TYPE_ASSETS) {account = trans->fromAccount(); category = trans->toAccount();}
+				else {account = trans->toAccount(); category = trans->fromAccount();}
+				date = trans->date();
+				description = trans->description();
+			} else {
+				if(trans->fromAccount()->type() == ACCOUNT_TYPE_ASSETS) {
+					if(trans->toAccount() != category) {
+						b_multiaccount = 0;
+						break;
+					} else if(b_multiaccount < 1 && trans->fromAccount() != account) {
+						b_multiaccount = 1;
 					}
-					if(!split) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
-				} else if(trans->fromAccount()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
-				else split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->toAccount());
-			}
-			if(split->associatedFile().isEmpty() && !trans->associatedFile().isEmpty()) {
-				split->setAssociatedFile(trans->associatedFile());
-			}
-			if(use_payee) {
-				if(payee.isEmpty()) {
-					if(trans->type() == TRANSACTION_TYPE_EXPENSE) payee = ((Expense*) trans)->payee();
-					else if(trans->type() == TRANSACTION_TYPE_INCOME) payee = ((Income*) trans)->payer();
 				} else {
-					if(trans->type() == TRANSACTION_TYPE_EXPENSE && !((Expense*) trans)->payee().isEmpty() && payee != ((Expense*) trans)->payee()) use_payee = false;
-					else if(trans->type() == TRANSACTION_TYPE_INCOME && !((Income*) trans)->payer().isEmpty() && payee != ((Income*) trans)->payer()) use_payee = false;
+					if(trans->fromAccount() != category) {
+						b_multiaccount = 0;
+						break;
+					} else if(b_multiaccount < 1 && trans->toAccount() != account) {
+						b_multiaccount = 1;
+					}
 				}
+				if(!different_dates && trans->date() != date) different_dates = true;
+				if(description.isEmpty()) description = trans->description();
+				else if(!different_descriptions && !trans->description().isEmpty() && description != trans->description()) different_descriptions = true;
 			}
-			split->addTransaction(trans->copy());
+		}
+	}
+	if(b_multiaccount != 0) {
+		if(different_descriptions && b_multiaccount == 1) b_multiaccount = -1;
+		else if(b_multiaccount < 0 && different_descriptions && !different_dates) b_multiaccount = 0;
+	}
+	if(b_multiaccount < 0) {
+		QMessageBox::StandardButton b = QMessageBox::question(this, tr("Join as multiple accounts/payments?"), transtype == TRANSACTION_TYPE_EXPENSE ? tr("Do you wish join the selected expenses as an expense with multiple accounts/payments?") : tr("Do you wish join the selected incomes as an income with multiple accounts/payments?"), QMessageBox::Yes | QMessageBox::No | QMessageBox::Cancel);
+		if(b == QMessageBox::Yes) b_multiaccount = 1;
+		else if(b == QMessageBox::Cancel) return;
+		else b_multiaccount = 0;
+	}
+	if(b_multiaccount > 0) {
+		for(int index = 0; index < selection.size(); index++) {
+			TransactionListViewItem *i = (TransactionListViewItem*) selection.at(index);
+			Transaction *trans = i->transaction();
+			if(trans && !i->scheduledTransaction() && !i->splitTransaction() && !trans->parentSplit()) {
+				sel_bak << trans;
+				if(!split) {
+					if(trans->fromAccount()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiAccountTransaction(budget, (CategoryAccount*) trans->toAccount(), trans->description());
+					else split = new MultiAccountTransaction(budget, (CategoryAccount*) trans->fromAccount(), trans->description());
+				} else {
+					if(((MultiAccountTransaction*) split)->description().isEmpty() && !trans->description().isEmpty()) {
+						((MultiAccountTransaction*) split)->setDescription(trans->description());
+					}
+				}
+				if(!trans->associatedFile().isEmpty()) {
+					if(split->associatedFile().isEmpty()) {
+						split->setAssociatedFile(trans->associatedFile());
+					} else {
+						QString str;
+						if((split->associatedFile().startsWith("\"") && split->associatedFile().endsWith("\"")) || (split->associatedFile().startsWith("\'") && split->associatedFile().endsWith("\'"))) str += split->associatedFile();
+						else if(split->associatedFile().contains("\"")) {str += "\'"; str += split->associatedFile(); str += "\'";}
+						else {str += "\""; str += split->associatedFile(); str += "\"";}
+						str += ", ";
+						if((trans->associatedFile().startsWith("\"") && trans->associatedFile().endsWith("\"")) || (trans->associatedFile().startsWith("\'") && trans->associatedFile().endsWith("\'"))) str += trans->associatedFile();
+						else if(trans->associatedFile().contains("\"")) {str += "\'"; str += trans->associatedFile(); str += "\'";}
+						else {str += "\""; str += trans->associatedFile(); str += "\"";}
+						split->setAssociatedFile(str);
+					}
+				}
+				if(!trans->comment().isEmpty()) {
+					if(split->comment().isEmpty()) split->setComment(trans->comment());
+					else split->setComment(split->comment() + " / " + trans->comment());
+				}
+				split->addTransaction(trans->copy());
+			}
+		}
+	} else {
+		for(int index = 0; index < selection.size(); index++) {
+			TransactionListViewItem *i = (TransactionListViewItem*) selection.at(index);
+			Transaction *trans = i->transaction();
+			if(trans && !i->scheduledTransaction() && !i->splitTransaction() && !trans->parentSplit()) {
+				sel_bak << trans;
+				if(!split) {
+					if((trans->type() == TRANSACTION_TYPE_SECURITY_BUY || trans->type() == TRANSACTION_TYPE_SECURITY_SELL) && ((SecurityTransaction*) trans)->account()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) ((SecurityTransaction*) trans)->account());
+					else if(trans->type() == TRANSACTION_TYPE_TRANSFER && selection.size() > index + 1) {
+						TransactionListViewItem *i_next = (TransactionListViewItem*) selection.at(index + 1);
+						Transaction *trans_next = i_next->transaction();
+						if(trans_next && !i_next->scheduledTransaction() && !i_next->splitTransaction() && !trans_next->parentSplit()) {
+							if((trans_next->type() == TRANSACTION_TYPE_SECURITY_BUY || trans_next->type() == TRANSACTION_TYPE_SECURITY_SELL) && ((SecurityTransaction*) trans_next)->account()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) ((SecurityTransaction*) trans_next)->account());
+							else if(trans->type() == TRANSACTION_TYPE_TRANSFER) {
+								if(trans->fromAccount() == trans_next->toAccount() || trans->fromAccount() == trans_next->fromAccount()) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
+								else if(trans->toAccount() == trans_next->toAccount() || trans->toAccount() == trans_next->fromAccount()) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->toAccount());
+								else split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
+							} else if(trans_next->fromAccount()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans_next->fromAccount());
+							else split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans_next->toAccount());
+						}
+						if(!split) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
+					} else if(trans->fromAccount()->type() == ACCOUNT_TYPE_ASSETS) split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->fromAccount());
+					else split = new MultiItemTransaction(budget, i->transaction()->date(), (AssetsAccount*) trans->toAccount());
+				}
+				if(!trans->associatedFile().isEmpty()) {
+					if(split->associatedFile().isEmpty()) {
+						split->setAssociatedFile(trans->associatedFile());
+					} else {
+						QString str;
+						if((split->associatedFile().startsWith("\"") && split->associatedFile().endsWith("\"")) || (split->associatedFile().startsWith("\'") && split->associatedFile().endsWith("\'"))) str += split->associatedFile();
+						else if(split->associatedFile().contains("\"")) {str += "\'"; str += split->associatedFile(); str += "\'";}
+						else {str += "\""; str += split->associatedFile(); str += "\"";}
+						str += ", ";
+						if((trans->associatedFile().startsWith("\"") && trans->associatedFile().endsWith("\"")) || (trans->associatedFile().startsWith("\'") && trans->associatedFile().endsWith("\'"))) str += trans->associatedFile();
+						else if(trans->associatedFile().contains("\"")) {str += "\'"; str += trans->associatedFile(); str += "\'";}
+						else {str += "\""; str += trans->associatedFile(); str += "\"";}
+						split->setAssociatedFile(str);
+					}
+				}
+				if(use_payee) {
+					if(payee.isEmpty()) {
+						if(trans->type() == TRANSACTION_TYPE_EXPENSE) payee = ((Expense*) trans)->payee();
+						else if(trans->type() == TRANSACTION_TYPE_INCOME) payee = ((Income*) trans)->payer();
+					} else {
+						if(trans->type() == TRANSACTION_TYPE_EXPENSE && !((Expense*) trans)->payee().isEmpty() && payee != ((Expense*) trans)->payee()) use_payee = false;
+						else if(trans->type() == TRANSACTION_TYPE_INCOME && !((Income*) trans)->payer().isEmpty() && payee != ((Income*) trans)->payer()) use_payee = false;
+					}
+				}
+				split->addTransaction(trans->copy());
+			}
 		}
 	}
 	if(!split) return;
-	if(use_payee && !payee.isEmpty()) split->setPayee(payee);
+	if(!b_multiaccount && use_payee && !payee.isEmpty()) ((MultiItemTransaction*) split)->setPayee(payee);
 	if(mainWin->editSplitTransaction(split, mainWin, true)) {
 		delete split;
 		for(int index = 0; index < sel_bak.size(); index++) {
@@ -1298,7 +1450,7 @@ void TransactionListWidget::removeTransaction() {
 			if(i->splitTransaction()) {
 				if(strans->isOneTimeTransaction()) {
 					budget->removeScheduledTransaction(strans, true);
-					mainWin->transactionRemoved(strans);
+					mainWin->transactionRemoved(strans, NULL, true);
 					delete strans;
 				} else {
 					QList<QDate> exception_dates;
@@ -1312,6 +1464,7 @@ void TransactionListWidget::removeTransaction() {
 					mainWin->transactionRemoved(strans);
 					for(int date_index = 0; date_index < exception_dates.count(); date_index++) {
 						if(strans->isOneTimeTransaction()) {
+							mainWin->removeTransactionLinks(strans);
 							budget->removeScheduledTransaction(strans, true);
 							delete strans;
 							strans = NULL;
@@ -1335,7 +1488,7 @@ void TransactionListWidget::removeTransaction() {
 					ScheduledTransaction *strans_new = new ScheduledTransaction(budget, split, NULL);
 					mainWin->transactionAdded(strans_new);
 					if(strans->isOneTimeTransaction()) {
-						mainWin->transactionRemoved(strans);
+						mainWin->transactionRemoved(strans, NULL, true);
 						budget->removeScheduledTransaction(strans, true);
 						delete strans;
 					} else {
@@ -1347,7 +1500,7 @@ void TransactionListWidget::removeTransaction() {
 			} else {
 				if(strans->isOneTimeTransaction()) {
 					budget->removeScheduledTransaction(strans, true);
-					mainWin->transactionRemoved(strans);
+					mainWin->transactionRemoved(strans, NULL, true);
 					delete strans;
 				} else {
 					ScheduledTransaction *oldstrans = strans->copy();
@@ -1359,24 +1512,24 @@ void TransactionListWidget::removeTransaction() {
 		} else if(i->splitTransaction()) {
 			MultiAccountTransaction *split = i->splitTransaction();
 			budget->removeSplitTransaction(split, true);
-			mainWin->transactionRemoved(split);
+			mainWin->transactionRemoved(split, NULL, true);
 			delete split;
-		} else {		
+		} else {
 			Transaction *trans = i->transaction();
 			if(trans->parentSplit() && trans->parentSplit()->count() == 1) {
 				SplitTransaction *split = trans->parentSplit();
 				budget->removeSplitTransaction(split, true);
-				mainWin->transactionRemoved(split);
+				mainWin->transactionRemoved(split, NULL, true);
 				delete split;
 			} else if(trans->parentSplit() && trans->parentSplit()->type() != SPLIT_TRANSACTION_TYPE_LOAN && trans->parentSplit()->count() == 2) {
 				SplitTransaction *split = trans->parentSplit();
 				mainWin->splitUpTransaction(split);
 				budget->removeTransaction(trans, true);
-				mainWin->transactionRemoved(trans);
+				mainWin->transactionRemoved(trans, NULL, true);
 				delete trans;
 			} else {
 				budget->removeTransaction(trans, true);
-				mainWin->transactionRemoved(trans);
+				mainWin->transactionRemoved(trans, NULL, true);
 				delete trans;
 			}
 		}
@@ -1443,12 +1596,12 @@ void TransactionListWidget::appendFilterTransaction(Transactions *transs, bool u
 	while(!strans || (!date.isNull() && date <= enddate)) {
 
 		QTreeWidgetItem *i = new TransactionListViewItem(date, trans, strans, split, QString(), QString(), transs->valueString());
-		
+
 		if(strans && strans->recurrence()) i->setText(0, QLocale().toString(date, QLocale::ShortFormat) + "**");
 		else i->setText(0, QLocale().toString(date, QLocale::ShortFormat));
 		transactionsView->insertTopLevelItem(0, i);
 		i->setTextAlignment(2, Qt::AlignRight | Qt::AlignVCenter);
-		
+
 		if((split && split->cost() > 0.0) || (trans && ((trans->type() == TRANSACTION_TYPE_EXPENSE && trans->value() > 0.0) || (trans->type() == TRANSACTION_TYPE_INCOME && trans->value() < 0.0)))) {
 			if(!expenseColor.isValid()) expenseColor = createExpenseColor(i, 2);
 			i->setForeground(2, expenseColor);
@@ -1492,6 +1645,7 @@ void TransactionListWidget::appendFilterTransaction(Transactions *transs, bool u
 			if(quantity_col >= 0) i->setText(quantity_col, budget->formatValue(trans->quantity()));
 			if(tags_col >= 0) i->setText(tags_col, trans->tagsText(true));
 			if(!trans->associatedFile().isEmpty() || (trans->parentSplit() && !trans->parentSplit()->associatedFile().isEmpty())) i->setIcon(2, LOAD_ICON_STATUS("mail-attachment"));
+			if(trans->linksCount(true) > 0) i->setIcon(comments_col, LOAD_ICON_STATUS("go-jump"));
 		} else if(split) {
 			i->setText(3, split->category()->name());
 			i->setText(4, split->accountsString());
@@ -1500,7 +1654,8 @@ void TransactionListWidget::appendFilterTransaction(Transactions *transs, bool u
 			i->setText(comments_col, transs->comment());
 			if(tags_col >= 0) i->setText(tags_col, transs->tagsText());
 			if(!split->associatedFile().isEmpty()) i->setIcon(2, LOAD_ICON_STATUS("mail-attachment"));
-		}		
+			if(split->linksCount() > 0) i->setIcon(comments_col, LOAD_ICON_STATUS("go-jump"));
+		}
 		current_value += transs->value(true);
 		current_quantity += transs->quantity();
 		if(strans && !strans->isOneTimeTransaction()) date = strans->recurrence()->nextOccurrence(date);
@@ -1528,6 +1683,7 @@ void TransactionListWidget::onTransactionSplitUp(SplitTransaction *split) {
 			if(i->transaction() && i->transaction()->parentSplit() == split) {
 				i->setText(1, i->transaction()->description());
 				if(!split->associatedFile().isEmpty() && i->transaction()->associatedFile().isEmpty()) i->setIcon(2, QIcon());
+				if(split->linksCount() > 0 && i->transaction()->linksCount(true) == 0) i->setIcon(comments_col, QIcon());
 			}
 			++it;
 			i = (TransactionListViewItem*) *it;
@@ -1604,6 +1760,8 @@ void TransactionListWidget::onTransactionModified(Transactions *transs, Transact
 					if(quantity_col >= 0) i->setText(quantity_col, budget->formatValue(transs->quantity()));
 					if(!trans->associatedFile().isEmpty() || (trans->parentSplit() && !trans->parentSplit()->associatedFile().isEmpty())) i->setIcon(2, LOAD_ICON_STATUS("mail-attachment"));
 					else i->setIcon(2, QIcon());
+					if(trans->linksCount(true) > 0) i->setIcon(comments_col, LOAD_ICON_STATUS("go-jump"));
+					else i->setIcon(comments_col, QIcon());
 				}
 				updateStatistics();
 			}
@@ -1691,7 +1849,9 @@ void TransactionListWidget::onTransactionModified(Transactions *transs, Transact
 					if(tags_col >= 0) i->setText(tags_col, split->tagsText());
 					if(quantity_col >= 0) i->setText(quantity_col, budget->formatValue(split->quantity()));
 					if(!split->associatedFile().isEmpty()) i->setIcon(2, LOAD_ICON_STATUS("mail-attachment"));
-					else i->setIcon(2, QIcon()); 
+					else i->setIcon(2, QIcon());
+					if(split->linksCount() > 0) i->setIcon(comments_col, LOAD_ICON_STATUS("go-jump"));
+					else i->setIcon(comments_col, QIcon());
 				}
 				updateStatistics();
 			}
@@ -1848,17 +2008,24 @@ void TransactionListWidget::currentTransactionChanged(QTreeWidgetItem *i) {
 	if(i == NULL) {
 		editWidget->setTransaction(NULL);
 		editInfoLabel->setText(QString());
-	} else if(((TransactionListViewItem*) i)->splitTransaction()) {
-		editWidget->setMultiAccountTransaction(((TransactionListViewItem*) i)->splitTransaction());
 	} else if(((TransactionListViewItem*) i)->scheduledTransaction()) {
-		editWidget->setTransaction(((TransactionListViewItem*) i)->transaction(), ((TransactionListViewItem*) i)->date());
+		if(((TransactionListViewItem*) i)->splitTransaction()) {
+			editWidget->setMultiAccountTransaction(((TransactionListViewItem*) i)->splitTransaction(), ((TransactionListViewItem*) i)->date() == ((TransactionListViewItem*) i)->splitTransaction()->date() ? QDate() : ((TransactionListViewItem*) i)->date());
+		} else {
+			editWidget->setTransaction(((TransactionListViewItem*) i)->transaction(), ((TransactionListViewItem*) i)->date());
+		}
 		if(((TransactionListViewItem*) i)->scheduledTransaction()->isOneTimeTransaction()) editInfoLabel->setText(QString());
 		else editInfoLabel->setText(tr("** Recurring (editing occurrence)"));
+	} else if(((TransactionListViewItem*) i)->splitTransaction()) {
+		editWidget->setMultiAccountTransaction(((TransactionListViewItem*) i)->splitTransaction());
+		editInfoLabel->setText(QString());
 	} else if(((TransactionListViewItem*) i)->transaction()->parentSplit()) {
 		editWidget->setTransaction(((TransactionListViewItem*) i)->transaction());
 		SplitTransaction *split = ((TransactionListViewItem*) i)->transaction()->parentSplit();
-		if(split->description().isEmpty() || split->description().length() > 10) editInfoLabel->setText(tr("* Part of split transaction"));
-		else editInfoLabel->setText(tr("* Part of split (%1)").arg(split->description()));
+		QFontMetrics fm(editInfoLabel->font());
+		int tw = fm.boundingRect(tr("* Part of split (%1)").arg(split->description())).width() + 20;
+		if(split->description().isEmpty() || tw > editInfoLabel->width()) editInfoLabel->setText(tr("* Part of <a href=\"%1\">split transaction</a>").arg("split transaction"));
+		else editInfoLabel->setText(tr("* Part of split (%1)").arg("<a href=\"split transaction\">" + split->description() + "</a>"));
 	} else {
 		editWidget->setTransaction(((TransactionListViewItem*) i)->transaction());
 		editInfoLabel->setText(QString());
@@ -1914,7 +2081,7 @@ void TransactionListWidget::newTransactionWithLoan() {
 	if(mainWin->newExpenseWithLoan(editWidget->description(), editWidget->value(), editWidget->quantity(), editWidget->date(), (ExpensesAccount*) editWidget->toAccount(), editWidget->payee(), editWidget->comments())) {
 		clearTransaction();
 	}
-	
+
 }
 void TransactionListWidget::newRefundRepayment() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
@@ -1929,14 +2096,20 @@ void TransactionListWidget::newRefundRepayment() {
 }
 void TransactionListWidget::updateTransactionActions() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
-	bool b_transaction = false, b_scheduledtransaction = false, b_split = false, b_join = false, b_delete = false, b_attachment = false, b_select = false, b_time = false, b_tags = false, b_clone = false;
+	bool b_transaction = false, b_scheduledtransaction = false, b_split = false, b_split2 = false, b_join = false, b_delete = false, b_attachment = false, b_select = false, b_time = false, b_tags = false, b_clone = false, b_link = false, b_link_to = false;
 	bool refundable = false, repayable = false;
 	QList<Transactions*> list;
+	Transactions *link_trans = mainWin->getLinkTransaction();
+	SplitTransaction *link_parent = NULL;
+	if(link_trans && link_trans->generaltype() == GENERAL_TRANSACTION_TYPE_SINGLE) link_parent = ((Transaction*) link_trans)->parentSplit();
 	if(selection.count() == 1) {
 		TransactionListViewItem *i = (TransactionListViewItem*) selection.first();
 		b_scheduledtransaction = i->scheduledTransaction() && i->scheduledTransaction()->recurrence();
 		b_split = !b_scheduledtransaction && (i->transaction() && i->transaction()->parentSplit());
+		b_split2 = i->splitTransaction();
 		b_transaction = !b_scheduledtransaction || !i->scheduledTransaction()->isOneTimeTransaction();
+		b_link = !i->scheduledTransaction() || i->scheduledTransaction()->isOneTimeTransaction();
+		b_link_to = link_trans && b_link && i->transaction() != link_trans && i->splitTransaction() != link_trans && (!b_split || (i->transaction()->parentSplit() != link_trans && i->transaction()->parentSplit() != link_parent));
 		b_time = !i->scheduledTransaction();
 		b_delete = b_transaction;
 		refundable = (i->splitTransaction() || (i->transaction()->type() == TRANSACTION_TYPE_EXPENSE && i->transaction()->value() > 0.0));
@@ -1955,27 +2128,49 @@ void TransactionListWidget::updateTransactionActions() {
 		}
 		b_clone = true;
 		b_select = true;
+		mainWin->updateLinksAction(list[0], !b_scheduledtransaction || i->scheduledTransaction()->isOneTimeTransaction());
 	} else if(selection.count() > 1) {
 		b_transaction = true;
 		b_delete = true;
 		b_join = true;
 		b_split = true;
 		b_time = true;
+		b_link = true;
+		b_link_to = (link_trans != NULL);
 		SplitTransaction *split = NULL;
+		TransactionListViewItem *i = (TransactionListViewItem*) selection.first();
+		if(i->transaction() && i->transaction()->parentSplit() && selection.size() < i->transaction()->parentSplit()->count()) {
+			split = i->transaction()->parentSplit();
+			b_link = false;
+			for(int index = 1; index < selection.size(); index++) {
+				i = (TransactionListViewItem*) selection.at(index);
+				if(!i->transaction() || i->transaction()->parentSplit() != split) {
+					b_link = true;
+					break;
+				}
+			}
+			split = NULL;
+		}
 		for(int index = 0; index < selection.size(); index++) {
-			TransactionListViewItem *i = (TransactionListViewItem*) selection.at(index);
+			if(index >= 10) b_link = false;
+			i = (TransactionListViewItem*) selection.at(index);
 			if(b_join && (i->splitTransaction() || i->scheduledTransaction() || i->transaction()->parentSplit())) {
 				b_join = false;
 			}
 			if(i->scheduledTransaction()) {
+				if((b_link || b_link_to) && !i->scheduledTransaction()->isOneTimeTransaction()) {
+					b_link = false;
+					b_link_to = false;
+				}
 				b_time = false;
 			}
 			if(b_transaction && i->scheduledTransaction() && (i->splitTransaction() || (i->transaction() && i->transaction()->parentSplit()))) {
 				b_transaction = false;
 				if(!i->splitTransaction()) b_delete = false;
 			}
+			Transaction *trans = i->transaction();
+			if(b_link_to && i->transaction() != link_trans && i->splitTransaction() != link_trans && trans && trans->parentSplit() && (trans->parentSplit() == link_trans || trans->parentSplit() == link_parent)) b_link_to = false;
 			if(b_split) {
-				Transaction *trans = i->transaction();
 				if(!trans) {
 					b_split = false;
 				} else {
@@ -1991,12 +2186,37 @@ void TransactionListWidget::updateTransactionActions() {
 		}
 		b_select = b_split && split;
 		b_attachment = b_select && !split->associatedFile().isEmpty();
+		mainWin->updateLinksAction(NULL);
+	} else {
+		mainWin->updateLinksAction(NULL);
 	}
 	b_tags = b_transaction;
 	if(b_tags) {
 		mainWin->tagMenu->setTransactions(list);
 		mainWin->ActionTags->setText(tr("Tags") + QString(" (") + QString::number(mainWin->tagMenu->selectedTagsCount()) + ")");
 	}
+	if(b_link && list.count() >= 2) {
+		b_link = false;
+		for(int i = 0; i < list.count() - 1; i++) {
+			for(int i2 = i + 1; i2 < list.count(); i2++) {
+				if(!list.at(i)->hasLink(list.at(i2), true)) {
+					b_link = true;
+					break;
+				}
+			}
+		}
+	}
+	if(b_link_to && list.count() >= 1) {
+		b_link_to = false;
+		for(int i = 0; i < list.count(); i++) {
+			if(!list.at(i)->hasLink(link_trans, true)) {
+				b_link_to = true;
+				break;
+			}
+		}
+	}
+	mainWin->ActionCreateLink->setEnabled(b_link);
+	mainWin->ActionLinkTo->setEnabled(b_link_to);
 	mainWin->ActionNewRefund->setEnabled(refundable);
 	mainWin->ActionNewRepayment->setEnabled(repayable);
 	mainWin->ActionNewRefundRepayment->setEnabled(refundable || repayable);
@@ -2010,7 +2230,7 @@ void TransactionListWidget::updateTransactionActions() {
 	mainWin->ActionEditSplitTransaction->setEnabled(b_split);
 	mainWin->ActionDeleteSplitTransaction->setEnabled(b_split);
 	mainWin->ActionJoinTransactions->setEnabled(b_join);
-	mainWin->ActionSplitUpTransaction->setEnabled(b_split);
+	mainWin->ActionSplitUpTransaction->setEnabled(b_split || b_split2);
 	mainWin->ActionCloneTransaction->setEnabled(b_clone);
 	if(b_tags) {
 		mainWin->ActionTags->setEnabled(true);

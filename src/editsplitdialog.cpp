@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006-2008, 2014, 2016 by Hanna Knutsson                 *
+ *   Copyright (C) 2006-2008, 2014, 2016-2020 by Hanna Knutsson            *
  *   hanna.knutsson@protonmail.com                                         *
  *                                                                         *
  *   This file is part of Eqonomize!.                                      *
@@ -42,7 +42,7 @@
 #include <QCompleter>
 #include <QStandardItemModel>
 #include <QStandardPaths>
-#include <QDirModel>
+#include <QFileSystemModel>
 #include <QFileDialog>
 #include <QInputDialog>
 
@@ -74,14 +74,14 @@ void EqonomizeRadioButton::keyPressEvent(QKeyEvent *event) {
 class MultiItemListViewItem : public QTreeWidgetItem {
 
 	Q_DECLARE_TR_FUNCTIONS(MultiItemListViewItem)
-	
+
 	protected:
-	
+
 		Transaction *o_trans;
 		bool b_deposit;
-		
+
 	public:
-	
+
 		MultiItemListViewItem(Transaction *trans, Currency *cur, bool deposit);
 		bool operator<(const QTreeWidgetItem&) const;
 		Transaction *transaction() const;
@@ -116,7 +116,7 @@ Transaction *MultiItemListViewItem::transaction() const {
 bool MultiItemListViewItem::isDeposit() const {
 	return b_deposit;
 }
-void MultiItemListViewItem::setTransaction(Transaction *trans, Currency *cur, bool deposit) {	
+void MultiItemListViewItem::setTransaction(Transaction *trans, Currency *cur, bool deposit) {
 	o_trans = trans;
 	b_deposit = deposit;
 	Budget *budget = trans->budget();
@@ -151,13 +151,13 @@ void MultiItemListViewItem::currencyChanged(Currency *cur) {
 class MultiAccountListViewItem : public QTreeWidgetItem {
 
 	Q_DECLARE_TR_FUNCTIONS(MultiAccountListViewItem)
-	
+
 	protected:
-	
+
 		Transaction *o_trans;
-		
+
 	public:
-	
+
 		MultiAccountListViewItem(Transaction *trans);
 		Transaction *transaction() const;
 		void setTransaction(Transaction *trans);
@@ -182,22 +182,22 @@ void MultiAccountListViewItem::setTransaction(Transaction *trans) {
 	setText(2, trans->valueString());
 }
 
-EditDebtPaymentDialog::EditDebtPaymentDialog(Budget *budg, QWidget *parent, AssetsAccount *default_loan, bool allow_account_creation, bool only_interest) : QDialog(parent, 0) {
+EditDebtPaymentDialog::EditDebtPaymentDialog(Budget *budg, QWidget *parent, AssetsAccount *default_loan, bool allow_account_creation, bool only_interest) : QDialog(parent) {
 	setWindowTitle(tr("Debt Payment"));
 	setModal(true);
 	QVBoxLayout *box1 = new QVBoxLayout(this);
 	editWidget = new EditDebtPaymentWidget(budg, this, default_loan, allow_account_creation, only_interest);
 	box1->addWidget(editWidget);
-	
+
 	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
 	box1->addWidget(buttonBox);
 	connect(editWidget, SIGNAL(addmodify()), this, SLOT(accept()));
-	
+
 	editWidget->focusFirst();
-	
+
 }
 EditDebtPaymentDialog::~EditDebtPaymentDialog() {}
 void EditDebtPaymentDialog::accept() {
@@ -209,22 +209,22 @@ void EditDebtPaymentDialog::keyPressEvent(QKeyEvent *e) {
 	QDialog::keyPressEvent(e);
 }
 
-EditMultiAccountDialog::EditMultiAccountDialog(Budget *budg, QWidget *parent, bool create_expenses, bool extra_parameters, bool allow_account_creation) : QDialog(parent, 0) {
+EditMultiAccountDialog::EditMultiAccountDialog(Budget *budg, QWidget *parent, bool create_expenses, bool extra_parameters, bool allow_account_creation) : QDialog(parent) {
 
 	if(create_expenses) setWindowTitle(tr("Expense with Multiple Payments"));
 	else setWindowTitle(tr("Income with Multiple Payments"));
-	
+
 	setModal(true);
 	QVBoxLayout *box1 = new QVBoxLayout(this);
 	editWidget = new EditMultiAccountWidget(budg, this, create_expenses, extra_parameters, allow_account_creation);
 	box1->addWidget(editWidget);
-	
+
 	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
 	box1->addWidget(buttonBox);
-	
+
 	editWidget->focusFirst();
 }
 EditMultiAccountDialog::~EditMultiAccountDialog() {}
@@ -241,21 +241,21 @@ void EditMultiAccountDialog::keyPressEvent(QKeyEvent *e) {
 	QDialog::keyPressEvent(e);
 }
 
-EditMultiItemDialog::EditMultiItemDialog(Budget *budg, QWidget *parent, AssetsAccount *default_account, bool extra_parameters, bool allow_account_creation) : QDialog(parent, 0) {
+EditMultiItemDialog::EditMultiItemDialog(Budget *budg, QWidget *parent, AssetsAccount *default_account, bool extra_parameters, bool allow_account_creation) : QDialog(parent) {
 	setWindowTitle(tr("Split Transaction"));
 	setModal(true);
 	QVBoxLayout *box1 = new QVBoxLayout(this);
 	editWidget = new EditMultiItemWidget(budg, this, default_account, extra_parameters, allow_account_creation);
 	box1->addWidget(editWidget);
-	
+
 	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
 	box1->addWidget(buttonBox);
-	
+
 	editWidget->focusFirst();
-	
+
 }
 EditMultiItemDialog::~EditMultiItemDialog() {}
 void EditMultiItemDialog::accept() {
@@ -286,7 +286,7 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	descriptionEdit->completer()->setModel(new QStandardItemModel(this));
 	descriptionEdit->completer()->setModelSorting(QCompleter::CaseInsensitivelySortedModel);
 	descriptionEdit->completer()->setCaseSensitivity(Qt::CaseInsensitive);
-	
+
 	QStringList descr_list;
 	QString descr;
 	for(SplitTransactionList<SplitTransaction*>::const_iterator it = budget->splitTransactions.constEnd(); it != budget->splitTransactions.constBegin();) {
@@ -313,7 +313,7 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	accountCombo->updateAccounts();
 	accountCombo->setCurrentAccount(default_account);
 	grid->addWidget(accountCombo, 2, 1);
-	
+
 	if(b_extra) {
 		grid->addWidget(new QLabel(tr("Payee/Payer:")), 3, 0);
 		payeeEdit = new QLineEdit();
@@ -353,18 +353,20 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	} else {
 		payeeEdit = NULL;
 	}
-	
+
 	grid->addWidget(new QLabel(tr("Tags:")), b_extra ? 4 : 3, 0);
 	tagButton = new TagButton(false, allow_account_creation, budget, this);
 	grid->addWidget(tagButton, b_extra ? 4 : 3, 1);
 	tagButton->updateTags();
 	connect(tagButton, SIGNAL(newTagRequested()), this, SLOT(newTag()));
-	
+
 	grid->addWidget(new QLabel(tr("Associated file:"), this), b_extra ? 5 : 4, 0);
 	QHBoxLayout *fileLayout = new QHBoxLayout();
 	fileEdit = new QLineEdit(this);
 	QCompleter *completer = new QCompleter(this);
-	completer->setModel(new QDirModel(completer));
+	QFileSystemModel *fsModel = new QFileSystemModel(completer);
+	fsModel->setRootPath(QString());
+	completer->setModel(fsModel);
 	fileEdit->setCompleter(completer);
 	fileLayout->addWidget(fileEdit);
 	QPushButton *selectFileButton = new QPushButton(LOAD_ICON("document-open"), QString(), this);
@@ -377,10 +379,18 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	fileLayout->addWidget(openFileButton);
 	openFileButton->setFocusPolicy(Qt::ClickFocus);
 	grid->addLayout(fileLayout, b_extra ? 5 : 4, 1);
-	
+
 	grid->addWidget(new QLabel(tr("Comments:")), b_extra ? 6 : 5, 0);
 	commentEdit = new QLineEdit();
 	grid->addWidget(commentEdit, b_extra ? 6 : 5, 1);
+
+	linksWidget = new LinksWidget(this, b_create_accounts);
+	linksWidget->hide();
+	//: Label for linked transactions
+	linksLabelLabel = new QLabel(tr("Related to:"), this);
+	linksLabelLabel->hide();
+	grid->addWidget(linksLabelLabel, b_extra ? 7 : 6, 0);
+	grid->addWidget(linksWidget, b_extra ? 7 : 6, 1);
 
 	box1->addWidget(new QLabel(tr("Transactions:")));
 	QHBoxLayout *box2 = new QHBoxLayout();
@@ -433,7 +443,7 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	totalLabel = new QLabel();
 	updateTotalValue();
 	box1->addWidget(totalLabel);
-	
+
 	connect(descriptionEdit, SIGNAL(returnPressed()), this, SLOT(focusDate()));
 	connect(dateEdit, SIGNAL(returnPressed()), accountCombo, SLOT(focusAndSelectAll()));
 	if(payeeEdit) {
@@ -494,7 +504,7 @@ void EditMultiItemWidget::accountChanged() {
 		updateTotalValue();
 		QTreeWidgetItemIterator it(transactionsView);
 		QTreeWidgetItem *i = *it;
-		while(i) {			
+		while(i) {
 			((MultiItemListViewItem*) i)->currencyChanged(account->currency());
 			++it;
 			i = *it;
@@ -616,6 +626,7 @@ MultiItemTransaction *EditMultiItemWidget::createTransaction() {
 	if(!validValues()) return NULL;
 	AssetsAccount *account = selectedAccount();
 	MultiItemTransaction *split = new MultiItemTransaction(budget, dateEdit->date(), account, descriptionEdit->text());
+	linksWidget->updateTransaction(split);
 	if(payeeEdit) split->setPayee(payeeEdit->text());
 	if(fileEdit) split->setAssociatedFile(fileEdit->text());
 	split->setComment(commentEdit->text());
@@ -629,9 +640,18 @@ MultiItemTransaction *EditMultiItemWidget::createTransaction() {
 		i = *it;
 	}
 	split->joinTags();
+	split->joinLinks();
 	return split;
 }
 void EditMultiItemWidget::setTransaction(MultiItemTransaction *split) {
+	linksWidget->setTransaction(split);
+	if(linksWidget->isEmpty()) {
+		linksWidget->hide();
+		linksLabelLabel->hide();
+	} else {
+		linksWidget->show();
+		linksLabelLabel->show();
+	}
 	descriptionEdit->setText(split->description());
 	dateEdit->setDate(split->date());
 	accountCombo->setCurrentAccount(split->account());
@@ -764,7 +784,7 @@ bool EditMultiItemWidget::validValues() {
 EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bool create_expenses, bool extra_parameters, bool allow_account_creation) : QWidget(parent), budget(budg), b_expense(create_expenses), b_extra(extra_parameters), b_create_accounts(allow_account_creation) {
 
 	QVBoxLayout *box1 = new QVBoxLayout(this);
-	
+
 	QGridLayout *grid = new QGridLayout();
 	box1->addLayout(grid);
 	box1->addStretch(1);
@@ -773,7 +793,7 @@ EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bo
 	descriptionEdit = new QLineEdit();
 	grid->addWidget(descriptionEdit, 0, 1);
 	descriptionEdit->setFocus();
-	
+
 	if(b_extra) {
 		grid->addWidget(new QLabel(tr("Quantity:")), 1, 0);
 		quantityEdit = new EqonomizeValueEdit(1.0, QUANTITY_DECIMAL_PLACES, true, false, this, budget);
@@ -786,18 +806,20 @@ EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bo
 	categoryCombo = new AccountComboBox(b_expense ? ACCOUNT_TYPE_EXPENSES : ACCOUNT_TYPE_INCOMES, budget, b_create_accounts);
 	categoryCombo->updateAccounts();
 	grid->addWidget(categoryCombo, b_extra ? 2 : 1, 1);
-	
+
 	grid->addWidget(new QLabel(tr("Tags:")), b_extra ? 3 : 2, 0);
 	tagButton = new TagButton(false, allow_account_creation, budget, this);
 	grid->addWidget(tagButton, b_extra ? 3 : 2, 1);
 	tagButton->updateTags();
 	connect(tagButton, SIGNAL(newTagRequested()), this, SLOT(newTag()));
-	
+
 	grid->addWidget(new QLabel(tr("Associated file:"), this), b_extra ? 4 : 3, 0);
 	QHBoxLayout *fileLayout = new QHBoxLayout();
 	fileEdit = new QLineEdit(this);
 	QCompleter *completer = new QCompleter(this);
-	completer->setModel(new QDirModel(completer));
+	QFileSystemModel *fsModel = new QFileSystemModel(completer);
+	fsModel->setRootPath(QString());
+	completer->setModel(fsModel);
 	fileEdit->setCompleter(completer);
 	fileLayout->addWidget(fileEdit);
 	QPushButton *selectFileButton = new QPushButton(LOAD_ICON("document-open"), QString(), this);
@@ -810,17 +832,25 @@ EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bo
 	fileLayout->addWidget(openFileButton);
 	openFileButton->setFocusPolicy(Qt::ClickFocus);
 	grid->addLayout(fileLayout, b_extra ? 4 : 3, 1);
-	
+
 	grid->addWidget(new QLabel(tr("Comments:")), b_extra ? 5 : 4, 0);
 	commentEdit = new QLineEdit();
 	grid->addWidget(commentEdit, b_extra ? 5 : 4, 1);
+
+	linksWidget = new LinksWidget(this, b_create_accounts);
+	linksWidget->hide();
+	//: Label for linked transactions
+	linksLabelLabel = new QLabel(tr("Related to:"), this);
+	linksLabelLabel->hide();
+	grid->addWidget(linksLabelLabel, b_extra ? 6 : 5, 0);
+	grid->addWidget(linksWidget, b_extra ? 6 : 5, 1);
 
 	box1->addWidget(new QLabel(tr("Transactions:")));
 	QHBoxLayout *box2 = new QHBoxLayout();
 	box1->addLayout(box2);
 	transactionsView = new EqonomizeTreeWidget(this);
 	transactionsView->setSortingEnabled(true);
-	transactionsView->sortByColumn(0, Qt::DescendingOrder);
+	transactionsView->sortByColumn(0, Qt::AscendingOrder);
 	transactionsView->setAllColumnsShowFocus(true);
 	transactionsView->setColumnCount(3);
 	QStringList headers;
@@ -849,7 +879,7 @@ EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bo
 	totalLabel = new QLabel();
 	updateTotalValue();
 	box1->addWidget(totalLabel);
-	
+
 	if(quantityEdit) {
 		connect(descriptionEdit, SIGNAL(returnPressed()), quantityEdit, SLOT(enterFocus()));
 		connect(quantityEdit, SIGNAL(returnPressed()), categoryCombo, SLOT(focusAndSelectAll()));
@@ -926,7 +956,7 @@ void EditMultiAccountWidget::updateTotalValue() {
 		}
 		++it2;
 		i = *it2;
-	}	
+	}
 	totalLabel->setText(QString("<div align=\"left\"><b>%1</b> %2</div>").arg(tr("Total cost:"), cur->formatValue(total_value)));
 }
 CategoryAccount *EditMultiAccountWidget::selectedCategory() {
@@ -997,6 +1027,7 @@ MultiAccountTransaction *EditMultiAccountWidget::createTransaction() {
 	if(!validValues()) return NULL;
 	CategoryAccount *account = selectedCategory();
 	MultiAccountTransaction *split = new MultiAccountTransaction(budget, account, descriptionEdit->text());
+	linksWidget->updateTransaction(split);
 	split->setComment(commentEdit->text());
 	split->setAssociatedFile(fileEdit->text());
 	tagButton->modifyTransaction(split);
@@ -1020,6 +1051,14 @@ void EditMultiAccountWidget::setTransaction(Transactions *transs) {
 	if(transs->generaltype() == GENERAL_TRANSACTION_TYPE_SCHEDULE) {
 		setTransaction(((ScheduledTransaction*) transs)->transaction());
 		return;
+	}
+	linksWidget->setTransaction(transs);
+	if(linksWidget->isEmpty()) {
+		linksWidget->hide();
+		linksLabelLabel->hide();
+	} else {
+		linksWidget->show();
+		linksLabelLabel->show();
 	}
 	descriptionEdit->setText(transs->description());
 	commentEdit->setText(transs->comment());
@@ -1052,6 +1091,14 @@ void EditMultiAccountWidget::setTransaction(Transactions *transs) {
 	emit dateChanged(transs->date());
 }
 void EditMultiAccountWidget::setTransaction(MultiAccountTransaction *split, const QDate &date) {
+	linksWidget->setTransaction(split);
+	if(linksWidget->isEmpty()) {
+		linksWidget->hide();
+		linksLabelLabel->hide();
+	} else {
+		linksWidget->show();
+		linksLabelLabel->show();
+	}
 	descriptionEdit->setText(split->description());
 	categoryCombo->setCurrentAccount(split->category());
 	if(quantityEdit) quantityEdit->setValue(split->quantity());
@@ -1064,7 +1111,7 @@ void EditMultiAccountWidget::setTransaction(MultiAccountTransaction *split, cons
 		Transaction *trans = split->at(i)->copy();
 		trans->setComment(QString());
 		trans->setAssociatedFile(QString());
-		trans->setDate(date);
+		if(date != split->date()) trans->setDate(date);
 		items.append(new MultiAccountListViewItem(trans));
 	}
 	tagButton->setTransaction(split);
@@ -1134,9 +1181,9 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 	QGridLayout *grid = new QGridLayout();
 	box1->addLayout(grid);
 	box1->addStretch(1);
-	
+
 	int row = 0;
-	
+
 	grid->addWidget(new QLabel(tr("Debt:")), row, 0);
 	loanCombo = new AccountComboBox(-3, budget, b_create_accounts);
 	loanCombo->updateAccounts();
@@ -1146,14 +1193,14 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 	dateEdit = new EqonomizeDateEdit(this);
 	dateEdit->setCalendarPopup(true);
 	grid->addWidget(dateEdit, row, 1); row++;
-	
+
 	if(only_interest) {
 		reductionEdit = NULL;
 		paymentEdit = NULL;
 	} else {
 		grid->addWidget(new QLabel(tr("Debt reduction:")), row, 0);
 		reductionEdit = new EqonomizeValueEdit(false, this, budget);
-		grid->addWidget(reductionEdit, row, 1); row++;		
+		grid->addWidget(reductionEdit, row, 1); row++;
 		paymentLabel = new QLabel(tr("Reduction payment:"));
 		grid->addWidget(paymentLabel, row, 0);
 		paymentEdit = new EqonomizeValueEdit(false, this, budget);
@@ -1163,11 +1210,11 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 			paymentEdit->setVisible(false);
 		}
 	}
-	
+
 	grid->addWidget(new QLabel(tr("Interest:")), row, 0);
 	interestEdit = new EqonomizeValueEdit(false, this, budget);
 	grid->addWidget(interestEdit, row, 1); row++;
-	
+
 	if(only_interest) {
 		feeEdit = NULL;
 		totalLabel = NULL;
@@ -1183,25 +1230,25 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 		paidAddedLayout->addWidget(addedInterestButton);
 		paidInterestButton->setChecked(true);
 		grid->addLayout(paidAddedLayout, row, 0, 1, 2); row++;
-		
+
 		grid->addWidget(new QLabel(tr("Fee:")), row, 0);
 		feeEdit = new EqonomizeValueEdit(false, this, budget);
 		grid->addWidget(feeEdit, row, 1); row++;
 
 		totalLabel = new QLabel();
 		grid->addWidget(totalLabel, row, 0, 1, 2); row++;
-	
+
 		grid->addWidget(new QLabel(tr("Account:")), row, 0);
 		accountCombo = new AccountComboBox(ACCOUNT_TYPE_ASSETS, budget, b_create_accounts);
 		accountCombo->updateAccounts();
 		grid->addWidget(accountCombo, row, 1); row++;
 	}
-	
+
 	grid->addWidget(new QLabel(tr("Expense category:")), row, 0);
 	categoryCombo = new AccountComboBox(ACCOUNT_TYPE_EXPENSES, budget, b_create_accounts);
 	categoryCombo->updateAccounts();
 	grid->addWidget(categoryCombo, row, 1); row++;
-	
+
 	if(only_interest) {
 		commentEdit = NULL;
 		fileEdit = NULL;
@@ -1210,7 +1257,9 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 		QHBoxLayout *fileLayout = new QHBoxLayout();
 		fileEdit = new QLineEdit(this);
 		QCompleter *completer = new QCompleter(this);
-		completer->setModel(new QDirModel(completer));
+		QFileSystemModel *fsModel = new QFileSystemModel(completer);
+		fsModel->setRootPath(QString());
+		completer->setModel(fsModel);
 		fileEdit->setCompleter(completer);
 		fileLayout->addWidget(fileEdit);
 		QPushButton *selectFileButton = new QPushButton(LOAD_ICON("document-open"), QString(), this);
@@ -1230,7 +1279,16 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 		commentEdit = new QLineEdit();
 		grid->addWidget(commentEdit, row, 1); row++;
 	}
-	
+
+	linksWidget = new LinksWidget(this, b_create_accounts);
+	linksWidget->hide();
+	//: Label for linked transactions
+	linksLabelLabel = new QLabel(tr("Related to:"), this);
+	linksLabelLabel->hide();
+	grid->addWidget(linksLabelLabel, row, 0);
+	grid->addWidget(linksWidget, row, 1);
+	row++;
+
 	loanCombo->focusAndSelectAll();
 
 	if(default_loan) loanCombo->setCurrentAccount(default_loan);
@@ -1241,7 +1299,7 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 	valueChanged();
 	interestSourceChanged();
 	b_search = true;
-	
+
 	connect(loanCombo, SIGNAL(returnPressed()), this, SLOT(focusDate()));
 	connect(loanCombo, SIGNAL(accountSelected(Account*)), this, SLOT(focusDate()));
 	if(only_interest) {
@@ -1352,7 +1410,7 @@ void EditDebtPaymentWidget::loanActivated(Account *account) {
 	if(!account) return;
 	AssetsAccount *loan = (AssetsAccount*) account;
 	if(b_search) {
-		DebtPayment *trans = NULL;		
+		DebtPayment *trans = NULL;
 		SplitTransactionList<SplitTransaction*>::const_iterator it = budget->splitTransactions.constEnd();
 		while(it != budget->splitTransactions.constBegin()) {
 			--it;
@@ -1508,6 +1566,7 @@ DebtPayment *EditDebtPaymentWidget::createTransaction() {
 	AssetsAccount *account = selectedAccount();
 	ExpensesAccount *category = selectedCategory();
 	DebtPayment *split = new DebtPayment(budget, dateEdit->date(), loan, account ? account : loan);
+	linksWidget->updateTransaction(split);
 	if((reductionEdit && reductionEdit->value() > 0.0) || (paymentEdit && paymentEdit->value() > 0.0)) split->setPayment(paymentEdit->value(), reductionEdit->value());
 	if(feeEdit && feeEdit->value() > 0.0) split->setFee(feeEdit->value());
 	if(interestEdit && interestEdit->value() > 0.0) split->setInterest(interestEdit->value(), !(addedInterestButton && addedInterestButton->isChecked()));
@@ -1517,6 +1576,14 @@ DebtPayment *EditDebtPaymentWidget::createTransaction() {
 	return split;
 }
 void EditDebtPaymentWidget::setTransaction(DebtPayment *split) {
+	linksWidget->setTransaction(split);
+	if(linksWidget->isEmpty()) {
+		linksWidget->hide();
+		linksLabelLabel->hide();
+	} else {
+		linksWidget->show();
+		linksLabelLabel->show();
+	}
 	if(dateEdit) dateEdit->setDate(split->date());
 	if(commentEdit) commentEdit->setText(split->comment());
 	if(fileEdit) fileEdit->setText(split->associatedFile());

@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006-2008, 2014, 2016-2019 by Hanna Knutsson            *
+ *   Copyright (C) 2006-2008, 2014, 2016-2020 by Hanna Knutsson            *
  *   hanna.knutsson@protonmail.com                                         *
  *                                                                         *
  *   This file is part of Eqonomize!.                                      *
@@ -44,6 +44,9 @@ Transactions::Transactions(const Transactions *trans) : i_id(trans->id()), i_fir
 	for(int i = 0; !trans->getTag(i).isEmpty(); i++) {
 		tags << trans->getTag(i);
 	}
+	for(int i = 0; i < trans->linksCount(false); i++) {
+		links << trans->getLinkId(i, false);
+	}
 }
 void Transactions::set(const Transactions *trans) {
 	i_id = trans->id();
@@ -52,6 +55,10 @@ void Transactions::set(const Transactions *trans) {
 	tags.clear();
 	for(int i = 0; !trans->getTag(i).isEmpty(); i++) {
 		tags << trans->getTag(i);
+	}
+	links.clear();
+	for(int i = 0; i < trans->linksCount(false); i++) {
+		links << trans->getLinkId(i, false);
 	}
 }
 
@@ -137,7 +144,7 @@ void Transactions::readTags(const QString &text) {
 			if(tagstr.length() >= 2 && ((tagstr.at(0) == '\"' && tagstr.at(tagstr.size() - 1) == '\"') || (tagstr.at(0) == '\'' && tagstr.at(tagstr.size() - 1) == '\''))) tagstr = tagstr.mid(1, tagstr.length() - 2).trimmed();
 			tags << tagstr.toString();
 			break;
-		}	
+		}
 		QStringRef tagi = tagstr.left(i).trimmed();
 		if(tagi.length() >= 2 && ((tagi.at(0) == '\"' && tagi.at(tagstr.size() - 1) == '\"') || (tagi.at(0) == '\'' && tagi.at(tagstr.size() - 1) == '\''))) tagi = tagi.mid(1, tagi.length() - 2).trimmed();
 		if(!tagi.isEmpty()) tags << tagi.toString();
@@ -177,6 +184,71 @@ QString Transactions::writeTags(bool) const {
 	}
 	return QString();
 }
+int Transactions::linksCount(bool) const {
+	return links.count();
+}
+qlonglong Transactions::getLinkId(int index, bool) const {
+	if(index >= 0 && index < links.count()) return links[index];
+	return -1;
+}
+Transactions *Transactions::getLink(int index, bool include_parent) const {
+	qlonglong lid = getLinkId(index, include_parent);
+	if(lid >= 0) {
+		return o_budget->getTransaction(lid);
+	}
+	return NULL;
+}
+void Transactions::clearLinks() {
+	links.clear();
+}
+void Transactions::addLink(Transactions *trans) {
+	if(trans) addLinkId(trans->id());
+}
+void Transactions::addLinkId(qlonglong lid) {
+	if(!links.contains(lid)) {
+		links << lid;
+	}
+}
+void Transactions::removeLink(int index) {
+	if(index >= 0 && index < links.count()) links.removeAt(index);
+}
+bool Transactions::removeLink(Transactions *trans) {
+	return removeLinkId(trans->id());
+}
+bool Transactions::removeLinkId(qlonglong lid) {
+	return links.removeAll(lid) > 0;
+}
+bool Transactions::hasLinkId(qlonglong lid, bool) const {return links.contains(lid);}
+bool Transactions::hasLink(Transactions *trans, bool include_parent) const {return hasLinkId(trans->id(), include_parent);}
+void Transactions::readLinks(const QString &text) {
+	links.clear();
+	if(text.isEmpty()) return;
+	if(!text.contains(',')) {
+		bool ok;
+		qlonglong lid = text.toLongLong(&ok);
+		if(ok) links << lid;
+	} else {
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+		QStringList strs = text.split(",", Qt::SkipEmptyParts);
+#else
+		QStringList strs = text.split(",", QString::SkipEmptyParts);
+#endif
+		for(int i = 0; i < strs.count(); i++) {
+			bool ok;
+			qlonglong lid = strs[i].toLongLong(&ok);
+			if(ok) links << lid;
+		}
+	}
+}
+QString Transactions::writeLinks(bool) const {
+	QString str;
+	for(int i = 0; i < links.count(); i++) {
+		if(i > 0) str += ",";
+		str += QString::number(links[i]);
+	}
+	return str;
+}
+
 
 Transaction::Transaction(Budget *parent_budget, double initial_value, QDate initial_date, Account *from, Account *to, QString initial_description, QString initial_comment, qlonglong initial_id) : Transactions(parent_budget), d_value(initial_value), d_date(initial_date), o_from(from), o_to(to), s_description(initial_description.trimmed()), s_comment(initial_comment.trimmed()), d_quantity(1.0), o_split(NULL), i_time(QDateTime::currentMSecsSinceEpoch() / 1000) {
 	if(initial_id < 0) i_id = o_budget->getNewId();
@@ -216,6 +288,7 @@ void Transaction::readAttributes(QXmlStreamAttributes *attr, bool *valid) {
 	s_comment = attr->value("comment").trimmed().toString();
 	s_file = attr->value("file").trimmed().toString();
 	if(attr->hasAttribute("tags")) readTags(attr->value("tags").toString());
+	if(attr->hasAttribute("links")) readLinks(attr->value("links").toString());
 	read_id(attr, i_id, i_first_revision, i_last_revision);
 	if(attr->hasAttribute("quantity")) d_quantity = attr->value("quantity").toDouble();
 	else d_quantity = 1.0;
@@ -240,6 +313,7 @@ void Transaction::writeAttributes(QXmlStreamAttributes *attr) {
 	if(i_time != 0) attr->append("timestamp", QString::number(i_time));
 	if(!s_description.isEmpty()) attr->append("description", s_description);
 	if(!tags.isEmpty()) attr->append("tags", writeTags(false));
+	if(!links.isEmpty()) attr->append("links", writeLinks(false));
 	if(!s_comment.isEmpty()) attr->append("comment", s_comment);
 	if(!s_file.isEmpty()) attr->append("file", s_file);
 	if(d_quantity != 1.0) attr->append("quantity", QString::number(d_quantity, 'f', QUANTITY_DECIMAL_PLACES));
@@ -262,6 +336,12 @@ bool Transaction::equals(const Transactions *trans, bool strict_comparison) cons
 		if(transaction->tagsCount() != tags.count()) return false;
 		for(int i = 0; i < tags.count(); i++) {
 			if(!transaction->hasTag(tags[i], false)) return false;
+		}
+	}
+	if(strict_comparison || (transaction->linksCount() > 0 && links.count() > 0)) {
+		if(transaction->linksCount() != links.count()) return false;
+		for(int i = 0; i < links.count(); i++) {
+			if(!transaction->hasLinkId(links[i], false)) return false;
 		}
 	}
 	if(budget() != transaction->budget()) return false;
@@ -296,12 +376,34 @@ const QString &Transaction::getTag(int index, bool include_parent) const {
 QString Transaction::writeTags(bool include_parent) const {
 	if(!include_parent || !o_split || o_split->tagsCount(false) == 0) return Transactions::writeTags(false);
 	QString str = Transactions::writeTags(false);
-	if(!str.isEmpty()) {
-		str += ",";
-		str += o_split->writeTags(false);
-	}
+	if(!str.isEmpty()) str += ",";
+	str += o_split->writeTags(false);
 	return str;
 }
+int Transaction::linksCount(bool include_parent) const {
+	if(!include_parent || !o_split) return links.count();
+	return links.count() + o_split->linksCount();
+}
+qlonglong Transaction::getLinkId(int index, bool include_parent) const {
+	if(index >= 0 && index < links.count()) return links[index];
+	if(include_parent && o_split) {
+		index -= links.count();
+		return o_split->getLinkId(index);
+	}
+	return -1;
+}
+QString Transaction::writeLinks(bool include_parent) const {
+	if(!include_parent || !o_split || o_split->linksCount(false) == 0) return Transactions::writeLinks(false);
+	QString str = Transactions::writeLinks(false);
+	if(!str.isEmpty()) str += ",";
+	str += o_split->writeLinks(false);
+	return str;
+}
+bool Transaction::hasLinkId(qlonglong lid, bool include_parent) const {
+	if(Transactions::hasLinkId(lid, false)) return true;
+	return include_parent && o_split && o_split->hasLinkId(lid, false);
+}
+
 
 SplitTransaction *Transaction::parentSplit() const {return o_split;}
 void Transaction::setParentSplit(SplitTransaction *parent) {
@@ -353,7 +455,7 @@ void Transaction::setTimestamp(qint64 cr_time) {
 QString Transaction::description() const {return s_description;}
 void Transaction::setDescription(QString new_description) {
 	if(new_description == s_description) return;
-	s_description = new_description.trimmed(); 
+	s_description = new_description.trimmed();
 	o_budget->transactionSortModified(this);
 }
 const QString &Transaction::comment() const {return s_comment;}
@@ -647,11 +749,11 @@ void Income::setTo(AssetsAccount *new_to) {setToAccount(new_to);}
 double Income::income(bool convert) const {return value(convert);}
 void Income::setIncome(double new_income) {setValue(new_income);}
 const QString &Income::payer() const {
-	if(o_security) return o_security->name(); 
+	if(o_security) return o_security->name();
 	return s_payer;
 }
 const QString &Income::payee() const {
-	if(o_security) return o_security->name(); 
+	if(o_security) return o_security->name();
 	return s_payer;
 }
 void Income::setPayer(QString new_payer) {s_payer = new_payer.trimmed();}
@@ -924,7 +1026,7 @@ Balancing::Balancing(Budget *parent_budget, double initial_amount, QDate initial
 	s_comment = initial_comment;
 	o_from = initial_account;
 	o_to = budget()->balancingAccount;
-	
+
 }
 Balancing::Balancing(Budget *parent_budget, QXmlStreamReader *xml, bool *valid) : Transfer(parent_budget) {
 	QXmlStreamAttributes attr = xml->attributes();
@@ -1183,7 +1285,7 @@ ScheduledTransaction::ScheduledTransaction(Budget *parent_budget, Transactions *
 	i_id = o_budget->getNewId();
 	o_rec = rec;
 	o_trans = trans;
-	if(o_trans && o_rec) o_trans->setDate(o_rec->startDate());
+	if(o_trans && o_rec && o_rec->startDate() != o_trans->date()) o_trans->setDate(o_rec->startDate());
 }
 ScheduledTransaction::ScheduledTransaction(Budget *parent_budget, QXmlStreamReader *xml, bool *valid) : Transactions(parent_budget) {
 	QXmlStreamAttributes attr = xml->attributes();
@@ -1305,9 +1407,9 @@ bool ScheduledTransaction::readElements(QXmlStreamReader *xml, bool *valid) {
 	o_trans = NULL;
 	while(xml->readNextStartElement()) {
 		if(!readElement(xml, valid)) xml->skipCurrentElement();
-	}	
+	}
 	if(!o_trans && valid) *valid = false;
-	if(o_rec && o_trans) {
+	if(o_rec && o_trans && o_rec->startDate() != o_trans->date()) {
 		o_trans->setDate(o_rec->startDate());
 	}
 	return true;
@@ -1374,7 +1476,7 @@ void ScheduledTransaction::writeElements(QXmlStreamWriter *xml) {
 		}
 		o_split->save(xml);
 		xml->writeEndElement();
-	}	
+	}
 	if(o_rec) {
 		xml->writeStartElement("recurrence");
 		switch(o_rec->type()) {
@@ -1414,7 +1516,7 @@ Recurrence *ScheduledTransaction::recurrence() const {
 void ScheduledTransaction::setRecurrence(Recurrence *rec, bool delete_old) {
 	if(o_rec && delete_old) delete o_rec;
 	o_rec = rec;
-	if(o_trans && o_rec) o_trans->setDate(o_rec->startDate());
+	if(o_trans && o_rec && o_rec->startDate() != o_trans->date()) o_trans->setDate(o_rec->startDate());
 	if(o_rec) {
 		o_budget->scheduledTransactionSortModified(this);
 		o_budget->scheduledTransactionDateModified(this);
@@ -1472,7 +1574,7 @@ Transactions *ScheduledTransaction::realize(QDate date) {
 	Transactions *trans = o_trans->copy();
 	trans->setTimestamp();
 	if(o_rec) {
-		o_trans->setDate(o_rec->startDate());
+		if(o_rec->startDate() != o_trans->date()) o_trans->setDate(o_rec->startDate());
 		o_budget->scheduledTransactionSortModified(this);
 		o_budget->scheduledTransactionDateModified(this);
 	}
@@ -1482,7 +1584,7 @@ Transactions *ScheduledTransaction::realize(QDate date) {
 	} else {
 		trans->setModified();
 	}
-	trans->setDate(date);
+	if(date != trans->date()) trans->setDate(date);
 	return trans;
 }
 Transactions *ScheduledTransaction::transaction() const {
@@ -1492,7 +1594,7 @@ void ScheduledTransaction::setTransaction(Transactions *trans, bool delete_old) 
 	if(o_trans && delete_old) delete o_trans;
 	o_trans = trans;
 	if(o_rec && o_trans) {
-		o_trans->setDate(o_rec->startDate());
+		if(o_rec->startDate() != o_trans->date()) o_trans->setDate(o_rec->startDate());
 	} else if(o_trans) {
 		o_budget->scheduledTransactionSortModified(this);
 		o_budget->scheduledTransactionDateModified(this);
@@ -1560,6 +1662,27 @@ QString ScheduledTransaction::payeeText() const {
 	if(o_trans) return o_trans->payeeText();
 	return QString();
 }
+int ScheduledTransaction::linksCount(bool include_parent) const {
+	if(o_trans) return o_trans->linksCount(include_parent);
+	return 0;
+}
+qlonglong ScheduledTransaction::getLinkId(int index, bool include_parent) const {
+	if(o_trans) return o_trans->getLinkId(index, include_parent);
+	return 0;
+}
+void ScheduledTransaction::clearLinks() {if(o_trans) o_trans->clearLinks();}
+void ScheduledTransaction::removeLink(int index) {if(o_trans) o_trans->removeLink(index);}
+bool ScheduledTransaction::removeLinkId(qlonglong lid) {
+	if(o_trans) return o_trans->removeLinkId(lid);
+	return false;
+}
+void ScheduledTransaction::addLinkId(qlonglong lid) {if(o_trans) o_trans->addLinkId(lid);}
+bool ScheduledTransaction::hasLinkId(qlonglong lid, bool include_parent) const {
+	if(o_trans) return o_trans->hasLinkId(lid, include_parent);
+	return false;
+}
+void ScheduledTransaction::readLinks(const QString &text) {if(o_trans) o_trans->readLinks(text);}
+QString ScheduledTransaction::writeLinks(bool include_parent) const {if(o_trans) {return o_trans->writeLinks(include_parent);} return QString();}
 
 SplitTransaction::SplitTransaction(Budget *parent_budget, QDate initial_date, QString initial_description) : Transactions(parent_budget), d_date(initial_date), s_description(initial_description.trimmed()), i_time(QDateTime::currentMSecsSinceEpoch() / 1000), b_reconciled(false) {i_id = o_budget->getNewId();}
 SplitTransaction::SplitTransaction(Budget *parent_budget, QXmlStreamReader *xml, bool *valid) : Transactions(parent_budget) {
@@ -1599,6 +1722,7 @@ void SplitTransaction::readAttributes(QXmlStreamAttributes *attr, bool*) {
 	i_time = attr->value("timestamp").toLongLong();
 	s_description = attr->value("description").trimmed().toString();
 	if(attr->hasAttribute("tags")) readTags(attr->value("tags").toString());
+	if(attr->hasAttribute("links")) readLinks(attr->value("links").toString());
 	s_comment = attr->value("comment").trimmed().toString();
 	s_file = attr->value("file").trimmed().toString();
 	b_reconciled = attr->value("reconciled").toInt();
@@ -1624,6 +1748,7 @@ void SplitTransaction::writeAttributes(QXmlStreamAttributes *attr) {
 	if(i_time != 0) attr->append("timestamp", QString::number(i_time));
 	if(!s_description.isEmpty()) attr->append("description", s_description);
 	if(!tags.isEmpty()) attr->append("tags", writeTags(false));
+	if(!links.isEmpty()) attr->append("links", writeLinks(false));
 	if(!s_comment.isEmpty()) attr->append("comment", s_comment);
 	if(!s_file.isEmpty()) attr->append("file", s_file);
 	if(b_reconciled) attr->append("reconciled", QString::number(b_reconciled));
@@ -1647,6 +1772,12 @@ bool SplitTransaction::equals(const Transactions *transaction, bool strict_compa
 		if(split->tagsCount() != tags.count()) return false;
 		for(int i = 0; i < tags.count(); i++) {
 			if(!transaction->hasTag(tags[i], false)) return false;
+		}
+	}
+	if(strict_comparison || (links.count() > 0 && split->linksCount() > 0)) {
+		if(split->linksCount() != links.count()) return false;
+		for(int i = 0; i < links.count(); i++) {
+			if(!transaction->hasLinkId(links[i], false)) return false;
 		}
 	}
 	if(budget() != split->budget()) return false;
@@ -1683,7 +1814,7 @@ void SplitTransaction::clear(bool keep) {
 const QDate &SplitTransaction::date() const {return d_date;}
 void SplitTransaction::setDate(QDate new_date) {
 	if(new_date != d_date) {
-		QDate old_date = d_date; d_date = new_date; 
+		QDate old_date = d_date; d_date = new_date;
 		o_budget->splitTransactionSortModified(this);
 		o_budget->splitTransactionDateModified(this, old_date);
 	}
@@ -1809,6 +1940,37 @@ void SplitTransaction::joinTags() {
 		}
 	}
 }
+void SplitTransaction::splitLinks() {
+	int c = count();
+	for(int i2 = 0; i2 < links.count(); i2++) {
+		for(int i = 0; i < c; i++) {
+			at(i)->addLinkId(links[i2]);
+		}
+	}
+	clearLinks();
+}
+void SplitTransaction::joinLinks() {
+	int c = count();
+	if(c == 0) return;
+	for(int i2 = 0; i2 < at(0)->linksCount(false);) {
+		bool b = true;
+		for(int i = 1; i < c; i++) {
+			if(!at(i)->hasLinkId(at(0)->getLinkId(i2, false), false)) {
+				b = false;
+				break;
+			}
+		}
+		if(b) {
+			qlonglong lid = at(0)->getLinkId(i2, false);
+			addLinkId(lid);
+			for(int i = 0; i < c; i++) {
+				at(i)->removeLinkId(lid);
+			}
+		} else {
+			i2++;
+		}
+	}
+}
 
 MultiItemTransaction::MultiItemTransaction(Budget *parent_budget, QDate initial_date, AssetsAccount *initial_account, QString initial_description) : SplitTransaction(parent_budget, initial_date, initial_description), o_account(initial_account) {}
 MultiItemTransaction::MultiItemTransaction(Budget *parent_budget, QXmlStreamReader *xml, bool *valid) : SplitTransaction(parent_budget) {
@@ -1859,7 +2021,7 @@ void MultiItemTransaction::set(const Transactions *trans) {
 void MultiItemTransaction::readAttributes(QXmlStreamAttributes *attr, bool *valid) {
 	o_account = NULL;
 	SplitTransaction::readAttributes(attr, valid);
-	s_payee = attr->value("payee").trimmed().toString(); 
+	s_payee = attr->value("payee").trimmed().toString();
 	qlonglong id = attr->value("account").toLongLong();
 	if(d_date.isValid() && budget()->assetsAccounts_id.contains(id)) {
 		o_account = budget()->assetsAccounts_id[id];
@@ -1870,7 +2032,14 @@ void MultiItemTransaction::readAttributes(QXmlStreamAttributes *attr, bool *vali
 bool MultiItemTransaction::readElement(QXmlStreamReader *xml, bool*) {
 	if(!o_account) return false;
 	if(xml->name() == "transaction") {
-		QString id = QString::number(o_account->id());
+		QString id;
+		for(QHash<qlonglong, AssetsAccount*>::iterator it = o_budget->assetsAccounts_id.begin(); it != o_budget->assetsAccounts_id.end(); ++it) {
+			if(it.value() == o_account) {
+				id = QString::number(it.key());
+				break;
+			}
+		}
+		if(id.isEmpty()) id = QString::number(o_account->id());
 		QXmlStreamAttributes attr = xml->attributes();
 		QStringRef type = attr.value("type");
 		if(type.isEmpty()) {
@@ -2000,8 +2169,8 @@ void MultiItemTransaction::writeElements(QXmlStreamWriter *xml) {
 					attr.append("type", "income");
 				}
 				trans->writeAttributes(&attr);
-				if(((Income*) trans)->payer() == s_payee) remove_attributes(&attr, "date", "from", "payer");
-				else remove_attributes(&attr, "date", "from");
+				if(((Income*) trans)->payer() == s_payee) remove_attributes(&attr, "date", "to", "payer");
+				else remove_attributes(&attr, "date", "to");
 				break;
 			}
 			case TRANSACTION_TYPE_EXPENSE: {
@@ -2095,6 +2264,13 @@ void MultiItemTransaction::addTransaction(Transaction *trans) {
 	for(int i = 0; i < trans->tagsCount(false);) {
 		if(hasTag(trans->getTag(i, false), false)) {
 			trans->removeTag(i);
+		} else {
+			i++;
+		}
+	}
+	for(int i = 0; i < trans->linksCount(false);) {
+		if(hasLinkId(trans->getLinkId(i, false), false)) {
+			trans->removeLink(i);
 		} else {
 			i++;
 		}
@@ -2237,9 +2413,25 @@ void MultiAccountTransaction::readAttributes(QXmlStreamAttributes *attr, bool *v
 bool MultiAccountTransaction::readElement(QXmlStreamReader *xml, bool*) {
 	if(!o_category) return false;
 	if(xml->name() == "transaction") {
-		QString id = QString::number(o_category->id());
 		QXmlStreamAttributes attr = xml->attributes();
 		QStringRef type = attr.value("type");
+		QString id;
+		if(type == "income") {
+			for(QHash<qlonglong, IncomesAccount*>::iterator it = o_budget->incomesAccounts_id.begin(); it != o_budget->incomesAccounts_id.end(); ++it) {
+				if(it.value() == o_category) {
+					id = QString::number(it.key());
+					break;
+				}
+			}
+		} else {
+			for(QHash<qlonglong, ExpensesAccount*>::iterator it = o_budget->expensesAccounts_id.begin(); it != o_budget->expensesAccounts_id.end(); ++it) {
+				if(it.value() == o_category) {
+					id = QString::number(it.key());
+					break;
+				}
+			}
+		}
+		if(id.isEmpty()) id = QString::number(o_category->id());
 		bool valid2 = true;
 		Transaction *trans = NULL;
 		if(o_category->type() == ACCOUNT_TYPE_EXPENSES && type == "expense") {
@@ -2272,7 +2464,8 @@ void MultiAccountTransaction::writeAttributes(QXmlStreamAttributes *attr) {
 	write_id(attr, i_id, i_first_revision, i_last_revision);
 	if(!s_description.isEmpty()) attr->append("description", s_description);
 	if(!tags.isEmpty()) attr->append("tags", writeTags(false));
-	if(!s_comment.isEmpty())  attr->append("comment", s_comment);
+	if(!links.isEmpty()) attr->append("links", writeLinks(false));
+	if(!s_comment.isEmpty()) attr->append("comment", s_comment);
 	attr->append("category", QString::number(o_category->id()));
 	if(d_quantity != 1.0) attr->append("quantity", QString::number(d_quantity, 'f', QUANTITY_DECIMAL_PLACES));
 	if(i_time != 0) attr->append("timestamp", QString::number(i_time));
@@ -2368,7 +2561,7 @@ void MultiAccountTransaction::setCategory(CategoryAccount *new_category) {
 
 AssetsAccount *MultiAccountTransaction::account() const {
 	QVector<Transaction*>::size_type c = splits.count();
-	if(c == 0) return NULL;	
+	if(c == 0) return NULL;
 	if(splits[0]->type() == TRANSACTION_TYPE_EXPENSE) {
 		AssetsAccount *acc = (AssetsAccount*) splits[0]->fromAccount();
 		for(QVector<Transaction*>::size_type i = 1; i < c; i++) {
@@ -2654,7 +2847,7 @@ void DebtPayment::setAccount(AssetsAccount *new_account) {
 }
 void DebtPayment::setDate(QDate new_date) {
 	if(new_date != d_date) {
-		QDate old_date = d_date; d_date = new_date; 
+		QDate old_date = d_date; d_date = new_date;
 		o_budget->splitTransactionSortModified(this);
 		o_budget->splitTransactionDateModified(this, old_date);
 	}
@@ -2696,7 +2889,7 @@ Transaction *DebtPayment::at(int index) const {
 		if(o_payment) {
 			if(o_interest) return o_interest;
 			return o_fee;
-		} 
+		}
 		if(o_interest) return o_fee;
 		return NULL;
 	}

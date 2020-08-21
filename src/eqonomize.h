@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006-2008, 2014, 2016-2019 by Hanna Knutsson            *
+ *   Copyright (C) 2006-2008, 2014, 2016-2020 by Hanna Knutsson            *
  *   hanna.knutsson@protonmail.com                                         *
  *                                                                         *
  *   This file is part of Eqonomize!.                                      *
@@ -65,6 +65,7 @@
 
 class QAction;
 class QActionGroup;
+class QButtonGroup;
 class QCheckBox;
 class QLabel;
 class QMenu;
@@ -116,14 +117,14 @@ class Transfer;
 class AccountComboBox;
 
 class Eqonomize : public QMainWindow {
-	
+
 	Q_OBJECT
 
 	public:
 
 		Eqonomize();
 		virtual ~Eqonomize();
-		
+
 		void sync(bool do_save = true, bool on_load = false, QWidget *parent = NULL);
 		bool saveURL(const QUrl& url, bool do_local_sync = true, bool do_cloud_sync = true, QWidget *parent = NULL);
 		bool saveAs(bool do_local_sync = true, bool do_cloud_sync = true, QWidget *parent = NULL);
@@ -160,14 +161,14 @@ class Eqonomize : public QMainWindow {
 		bool editAccount(Account*);
 		bool editAccount(Account*, QWidget *parent);
 		void balanceAccount(Account*);
-		bool checkSchedule(bool update_display, QWidget *parent);
+		bool checkSchedule(bool update_display, QWidget *parent, bool allow_account_creation = true);
 		void updateScheduledTransactions();
 		void appendScheduledTransaction(ScheduledTransaction *strans);
 		bool editScheduledTransaction(ScheduledTransaction *strans);
-		bool editScheduledTransaction(ScheduledTransaction *strans, QWidget *parent, bool clone_trans = false);
+		bool editScheduledTransaction(ScheduledTransaction *strans, QWidget *parent, bool clone_trans = false, bool allow_account_creation = true);
 		bool editOccurrence(ScheduledTransaction *strans, const QDate &date);
 		bool editOccurrence(ScheduledTransaction *strans, const QDate &date, QWidget *parent);
-		bool editTransaction(Transaction *trans, QWidget *parent, bool clone_trans = false);
+		bool editTransaction(Transaction *trans, QWidget *parent, bool clone_trans = false, bool allow_account_creation = true);
 		bool editTransaction(Transaction *trans);
 		bool removeScheduledTransaction(ScheduledTransaction *strans);
 		bool removeOccurrence(ScheduledTransaction *strans, const QDate &date);
@@ -181,7 +182,7 @@ class Eqonomize : public QMainWindow {
 		bool newDebtPayment(QWidget *parent, AssetsAccount *loan = NULL, bool only_interest = false);
 		bool editTimestamp(QList<Transactions*> trans, QWidget *parent = NULL);
 		bool editSplitTransaction(SplitTransaction *split);
-		bool editSplitTransaction(SplitTransaction *split, QWidget *parent, bool temporary_split = false, bool clone_trans = false);
+		bool editSplitTransaction(SplitTransaction *split, QWidget *parent, bool temporary_split = false, bool clone_trans = false, bool allow_account_creation = true);
 		bool splitUpTransaction(SplitTransaction *split);
 		bool removeSplitTransaction(SplitTransaction *split);
 		bool saveView(QTextStream &file, int fileformat);
@@ -207,6 +208,18 @@ class Eqonomize : public QMainWindow {
 		bool timeToUpdateExchangeRates();
 		void addNewSchedule(ScheduledTransaction *strans, QWidget *parent);
 
+		void removeOldLinks(Transactions*, Transactions*);
+		void addTransactionLinks(Transactions*, bool update_display = true);
+		bool removeTransactionLinks(Transactions*);
+		void linksUpdated(Transactions*);
+		void updateLinksAction(Transactions*, bool enable_remove = true);
+		void updateLinksAction();
+		QMenu *createPopupMenu();
+		void setLinkTransaction(Transactions *trans);
+		Transactions *getLinkTransaction();
+		void createLink(QList<Transactions*> transactions, bool link_to);
+		static void openLink(Transactions *trans, QWidget *parent = NULL);
+
 		QAction *ActionAP_1, *ActionAP_2, *ActionAP_3, *ActionAP_4, *ActionAP_5, *ActionAP_6, *ActionAP_7, *ActionAP_8;
 		QAction *ActionEditSchedule, *ActionEditOccurrence, *ActionDeleteSchedule, *ActionDeleteOccurrence;
 		QAction *ActionAddAccount, *ActionNewAssetsAccount, *ActionNewLoan, *ActionNewIncomesAccount, *ActionNewExpensesAccount, *ActionEditAccount, *ActionDeleteAccount, *ActionCloseAccount, *ActionBalanceAccount, *ActionAddAccountMenu;
@@ -217,7 +230,7 @@ class Eqonomize : public QMainWindow {
 		QAction *ActionJoinTransactions, *ActionSplitUpTransaction;
 		QAction *ActionCloneTransaction;
 		QAction *ActionEditTimestamp;
-		QAction *ActionTags;
+		QAction *ActionTags, *ActionLinks, *ActionCreateLink, *ActionLinkTo, *ActionCancelLinkTo;
 		QAction *ActionSelectAssociatedFile, *ActionOpenAssociatedFile;
 		QAction *ActionDeleteTransaction, *ActionDeleteScheduledTransaction, *ActionDeleteSplitTransaction;
 		QAction *ActionNewSecurity, *ActionEditSecurity, *ActionBuyShares, *ActionSellShares, *ActionNewDividend, *ActionNewReinvestedDividend, *ActionNewSecurityTrade, *ActionSetQuotation, *ActionEditQuotations, *ActionEditSecurityTransactions, *ActionDeleteSecurity;
@@ -234,16 +247,17 @@ class Eqonomize : public QMainWindow {
 		QActionGroup *ActionSelectInitialPeriod, *ActionSelectBackupFrequency, *ActionSelectLang;
 		QAction *ActionHelp, *ActionWhatsThis, *ActionReportBug, *ActionAbout, *ActionAboutQt;
 		QAction *ActionNewTag, *ActionRenameTag, *ActionRemoveTag;
-		
+
 		TagMenu *tagMenu;
-		
+		QMenu *linkMenu;
+
 	protected:
 
 		void setupActions();
-		void updateRecentFiles(QString filePath = QString());		
+		void updateRecentFiles(QString filePath = QString());
 		void saveOptions();
 		void closeEvent(QCloseEvent *event);
-		
+
 		void dragEnterEvent(QDragEnterEvent *event);
 		void dropEvent(QDropEvent *event);
 
@@ -258,8 +272,9 @@ class Eqonomize : public QMainWindow {
 		QLocalSocket *socket;
 		QLocalServer *server;
 		QString cr_tmp_file;
+		Transactions *link_trans;
 
-		QToolBar *fileToolbar, *accountsToolbar, *transactionsToolbar, *statisticsToolbar;
+		QToolBar *fileToolbar, *accountsToolbar, *transactionsToolbar, *statisticsToolbar, *linkToolbar;
 		QTabWidget *tabs;
 		QTabWidget *accountsTabs;
 		QCheckBox *budgetButton;
@@ -286,7 +301,7 @@ class Eqonomize : public QMainWindow {
 		QComboBox *setMainCurrencyCombo;
 		QNetworkReply *updateExchangeRatesReply, *checkVersionReply;
 		CurrencyConversionDialog *currencyConversionWindow;
-		
+
 		int prev_set_main_currency_index;
 		double total_value, total_cost, total_profit, total_rate;
 		double expenses_accounts_value, incomes_accounts_value, assets_accounts_value, liabilities_accounts_value;
@@ -315,16 +330,16 @@ class Eqonomize : public QMainWindow {
 		QMap<QString, QVariant> assets_expanded, liabilities_expanded, expenses_expanded, incomes_expanded;
 
 		QMenu *assetsPopupMenu, *accountPopupMenu, *tagPopupMenu, *securitiesPopupMenu, *schedulePopupMenu, *scheduleHeaderPopupMenu;
-		
+
 		QDialog *helpDialog, *cccDialog, *ccrDialog, *otcDialog, *otrDialog, *syncDialog;
-		
+
 		QLineEdit *syncUploadEdit, *syncUrlEdit, *syncDownloadEdit;
 		QPushButton *uploadButton;
 		QCheckBox *syncAutoBox;
 		QTreeWidgetItem *clicked_item;
-		
+
 	protected slots:
-	
+
 		void checkAvailableVersion_readdata();
 		void languageSelected();
 
@@ -333,34 +348,34 @@ class Eqonomize : public QMainWindow {
 		void saveCrashRecovery();
 		void autoSave();
 		void onAutoSaveTimeout();
-		
+
 		void onActivateRequested(const QStringList&, const QString&);
 
 		void useExtraProperties(bool);
-		
+
 		void useExchangeRateForTransactionDate(bool);
 
 		void updateBudgetDay();
 		void setBudgetPeriod();
-		
+
 		void setScheduleConfirmationTime();
-		
+
 		void selectFont();
-		
+
 		void showFilter();
-		
+
 		void showHelp();
 		void reportBug();
 		void showAbout();
 		void showAboutQt();
-	
+
 		void importCSV();
 		void importQIF();
 		void importEQZ();
 		void exportQIF();
-		
+
 		void checkAvailableVersion();
-		
+
 		void checkExchangeRatesTimeOut();
 		void updateExchangeRates(bool do_currencies_modified = true);
 		void cancelUpdateExchangeRates();
@@ -370,13 +385,13 @@ class Eqonomize : public QMainWindow {
 		void setMainCurrencyIndexChanged(int index);
 		void updateUsesMultipleCurrencies();
 		void openCurrencyConversion();
-		
+
 		void cancelSync();
 		void fileSynchronize();
 		void openSynchronizationSettings();
 		void syncUploadChanged(const QString&);
 		void uploadClicked();
-		
+
 		void serverNewConnection();
 		void socketReadyRead();
 
@@ -407,7 +422,7 @@ class Eqonomize : public QMainWindow {
 		void securitiesExecuted(QTreeWidgetItem*, int);
 		void popupSecuritiesMenu(const QPoint&);
 		void updateSecurities();
-		
+
 		void newExpenseWithLoan();
 		void newMultiAccountExpense();
 		void newMultiAccountIncome();
@@ -438,7 +453,7 @@ class Eqonomize : public QMainWindow {
 		void deleteSelectedSplitTransaction();
 		void joinSelectedTransactions();
 		void splitUpSelectedTransaction();
-		
+
 		void selectAssociatedFile();
 		void openAssociatedFile();
 
@@ -452,8 +467,14 @@ class Eqonomize : public QMainWindow {
 		void showLedger();
 		void reconcileAccount();
 
+		void createLink();
+		void linkTo();
+		void cancelLinkTo();
+		void openLink();
+		void removeLink();
+
 		void updateTransactionActions();
-		
+
 		bool openURL(const QUrl&, bool merge = false);
 		void fileNew();
 		void fileOpen();
@@ -491,7 +512,7 @@ class Eqonomize : public QMainWindow {
 		void deleteAccount();
 		void closeAccount();
 		void accountsSelectionChanged();
-		
+
 		void tagAdded(QString);
 		void newTag();
 		void deleteTag();
@@ -505,7 +526,7 @@ class Eqonomize : public QMainWindow {
 		void budgetChanged(double);
 		void budgetToggled(bool);
 		void updateBudgetEdit();
-		
+
 		void accountsPeriodFromChanged(const QDate&);
 		void accountsPeriodToChanged(const QDate&);
 		void periodSelected(QAction*);
@@ -524,10 +545,10 @@ class Eqonomize : public QMainWindow {
 		void securitiesPrevYear();
 		void securitiesNextYear();
 		void securitiesCurrentYear();
-		
+
 		void transactionAdded(Transactions*);
 		void transactionModified(Transactions*, Transactions*);
-		void transactionRemoved(Transactions*, Transactions* = NULL);
+		void transactionRemoved(Transactions*, Transactions* = NULL, bool permanent = false);
 
 		void filterAccounts();
 
@@ -542,92 +563,92 @@ class Eqonomize : public QMainWindow {
 };
 
 class OverTimeReportDialog : public QDialog {
-	
+
 	Q_OBJECT
-	
+
 	public:
-		
+
 		OverTimeReportDialog(Budget *budg, QWidget *parent);
 		OverTimeReport *report;
 
 	public slots:
-		
+
 		void reject();
-		
+
 };
 
 class CategoriesComparisonReportDialog : public QDialog {
-	
+
 	Q_OBJECT
-	
+
 	public:
-		
+
 		CategoriesComparisonReportDialog(bool extra_parameters, Budget *budg, QWidget *parent);
 		CategoriesComparisonReport *report;
 
 	public slots:
-		
+
 		void reject();
-		
+
 };
 
 class CategoriesComparisonChartDialog : public QDialog {
-	
+
 	Q_OBJECT
-		
+
 	public:
-		
-		CategoriesComparisonChartDialog(Budget *budg, QWidget *parent);		
+
+		CategoriesComparisonChartDialog(Budget *budg, QWidget *parent);
 		CategoriesComparisonChart *chart;
 
 	public slots:
-		
+
 		void reject();
-		
+
 };
 
 class OverTimeChartDialog : public QDialog {
-	
+
 	Q_OBJECT
-		
+
 	public:
-		
-		OverTimeChartDialog(bool extra_parameters, Budget *budg, QWidget *parent);		
+
+		OverTimeChartDialog(bool extra_parameters, Budget *budg, QWidget *parent);
 		OverTimeChart *chart;
 
 	public slots:
-		
+
 		void reject();
-		
+
 };
 
 class ConfirmScheduleDialog : public QDialog {
-	
+
 	Q_OBJECT
-	
+
 	protected:
 
 		QTreeWidget *transactionsView;
 		Budget *budget;
-		bool b_extra;
+		bool b_extra, b_create_accounts;
 		QPushButton *editButton, *removeButton, *postponeButton;
 		int current_index;
-		
+
 	public:
-		
-		ConfirmScheduleDialog(bool extra_parameters, Budget *budg, QWidget *parent, QString title);
+
+		ConfirmScheduleDialog(bool extra_parameters, Budget *budg, QWidget *parent, QString title, bool allow_account_creation = true);
 
 		Transactions *firstTransaction();
 		Transactions *nextTransaction();
 
 	public slots:
-		
+
 		void transactionSelectionChanged();
 		void remove();
 		void edit();
 		void postpone();
 		void updateTransactions();
-		
+
 };
 
 class EditSecurityDialog : public QDialog {
@@ -648,7 +669,7 @@ class EditSecurityDialog : public QDialog {
 		bool b_create_accounts;
 
 	public:
-		
+
 		EditSecurityDialog(Budget *budg, QWidget *parent, QString title, bool allow_account_creation = false);
 		Security *newSecurity();
 		bool modifySecurity(Security *security);
@@ -681,7 +702,7 @@ class EditQuotationsDialog : public QDialog {
 		int i_quotation_decimals;
 		Budget *budget;
 		Security *security;
-		
+
 		bool import(QString url, bool test, q_csv_info *ci);
 
 	public:
@@ -692,7 +713,7 @@ class EditQuotationsDialog : public QDialog {
 		void modifyQuotations();
 
 	protected slots:
-		
+
 		void onSelectionChanged();
 		void addQuotation();
 		void changeQuotation();
@@ -714,7 +735,9 @@ class RefundDialog : public QDialog {
 		QDateEdit *dateEdit;
 		AccountComboBox *accountCombo;
 		QLineEdit *commentsEdit;
-		
+		QButtonGroup *joinGroup;
+		QLayout *joinGroup_layout;
+
 		void keyPressEvent(QKeyEvent*);
 
 	public:
@@ -723,11 +746,14 @@ class RefundDialog : public QDialog {
 
 		Transaction *createRefund();
 		bool validValues();
+		bool joinIsChecked();
 
 	protected slots:
-		
+
 		void accept();
 		void accountActivated(Account*);
+		void joinToggled(bool);
+		void accountNextFocus();
 
 };
 
@@ -743,7 +769,7 @@ class EditSecurityTradeDialog : public QDialog {
 		EqonomizeValueEdit *fromSharesEdit, *toSharesEdit;
 		QDateEdit *dateEdit;
 		int prev_from_index;
-		
+
 		void keyPressEvent(QKeyEvent *e);
 
 	public:
@@ -756,7 +782,7 @@ class EditSecurityTradeDialog : public QDialog {
 		bool checkSecurities();
 
 	protected slots:
-		
+
 		void accept();
 		void maxShares();
 		Security *selectedFromSecurity();
@@ -768,9 +794,9 @@ class EditSecurityTradeDialog : public QDialog {
 };
 
 class SecurityTransactionsDialog : public QDialog {
-	
+
 	Q_OBJECT
-	
+
 	protected:
 
 		Security *security;
@@ -779,39 +805,39 @@ class SecurityTransactionsDialog : public QDialog {
 		QPushButton *editButton, *removeButton;
 
 		void updateTransactions();
-		
+
 	public:
-		
+
 		SecurityTransactionsDialog(Security *sec, Eqonomize *parent, QString title);
 
 	protected slots:
-		
+
 		void remove();
 		void edit();
 		void edit(QTreeWidgetItem*);
 		void transactionSelectionChanged();
-		
+
 };
 
 class EqonomizeTreeWidget : public QTreeWidget {
 
 	Q_OBJECT
-	
+
 	public:
-	
+
 		EqonomizeTreeWidget(QWidget *parent);
 		EqonomizeTreeWidget();
-	
+
 	protected:
-	
+
 		void dropEvent(QDropEvent *event);
 
 	protected slots:
-	
+
 		void keyPressEvent(QKeyEvent*);
 
 	signals:
-	
+
 		void returnPressed(QTreeWidgetItem*);
 		void spacePressed(QTreeWidgetItem*);
 		void itemMoved(QTreeWidgetItem*, QTreeWidgetItem*);
@@ -821,7 +847,7 @@ class EqonomizeTreeWidget : public QTreeWidget {
 class QIFWizardPage : public QWizardPage {
 	protected:
 		bool is_complete;
-	public:		
+	public:
 		QIFWizardPage();
 		bool isComplete() const;
 		void setComplete(bool b);
@@ -830,22 +856,22 @@ class QIFWizardPage : public QWizardPage {
 class EqonomizeComboBox : public QComboBox {
 
 	Q_OBJECT
-	
+
 	protected:
-	
+
 		bool block_selected;
 
 	public:
-	
+
 		EqonomizeComboBox(QWidget *parent);
-	
+
 	protected slots:
-	
+
 		void keyPressEvent(QKeyEvent *event);
 		void itemActivated(int);
-		
+
 	signals:
-	
+
 		void returnPressed();
 		void itemSelected(int);
 
@@ -859,7 +885,7 @@ class EqonomizeItemDelegate : public QStyledItemDelegate {
 		EqonomizeItemDelegate(QObject *parent = NULL);
 
 	public slots:
-	
+
 		bool helpEvent(QHelpEvent *e, QAbstractItemView *view, const QStyleOptionViewItem &option, const QModelIndex &index);
 		void paint(QPainter *painter, const QStyleOptionViewItem& option, const QModelIndex &index) const;
 
@@ -867,13 +893,13 @@ class EqonomizeItemDelegate : public QStyledItemDelegate {
 
 
 class EqonomizeTranslator : public QTranslator {
-	
+
 	Q_OBJECT
-	
+
 	public:
 
 		EqonomizeTranslator();
-		
+
 		QString	translate(const char *context, const char *sourceText, const char *disambiguation = NULL, int n = -1) const;
 
 };
