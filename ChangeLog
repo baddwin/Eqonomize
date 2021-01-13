@@ -1,3 +1,24 @@
+2021-01-07  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix handling parentheses when calculating expression in value entry
+	* Fix initial state of "Bank" entry when initial account type is not "Cash"
+
+2020-12-14  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Danish translation (from Tag Valdemar)
+
+2020-12-10  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Open ledger on account double click regardless of column
+
+2020-08-30  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Allow separate comments for each transaction in an expense/income
+	  with multiple accounts/payments
+	* Add payee/payer column to dialog for transaction with multiple
+	  accounts/payments
+	* Add payee/payer field to refund/repayment dialog
+
 2020-08-12  Hanna Knutsson <hanna.knutsson@protonmail.com>
 
 	* Fixes for reccuring transactions with multiple accounts/payments

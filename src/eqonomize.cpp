@@ -685,7 +685,7 @@ bool QuotationListViewItem::operator<(const QTreeWidgetItem &i_pre) const {
 	return QTreeWidgetItem::operator<(i_pre);
 }
 
-RefundDialog::RefundDialog(Transactions *trans, QWidget *parent) : QDialog(parent), transaction(trans) {
+RefundDialog::RefundDialog(Transactions *trans, QWidget *parent, bool extra_parameters) : QDialog(parent), transaction(trans) {
 
 	setModal(true);
 
@@ -735,6 +735,13 @@ RefundDialog::RefundDialog(Transactions *trans, QWidget *parent) : QDialog(paren
 	layout->addWidget(accountCombo, i, 1);
 	i++;
 
+	if(extra_parameters) layout->addWidget(new QLabel(t_type == TRANSACTION_TYPE_INCOME ? tr("Payee:") : tr("Payer:"), this), i, 0);
+	payeeEdit = new QLineEdit(this);
+	payeeEdit->setText(trans->payeeText());
+	layout->addWidget(payeeEdit, i, 1);
+	if(!extra_parameters) payeeEdit->hide();
+	i++;
+
 	layout->addWidget(new QLabel(tr("Comments:"), this), i, 0);
 	commentsEdit = new QLineEdit(this);
 	if(t_type == TRANSACTION_TYPE_INCOME) commentsEdit->setText(tr("Repayment"));
@@ -768,8 +775,6 @@ RefundDialog::RefundDialog(Transactions *trans, QWidget *parent) : QDialog(paren
 	joinGroup_layout->addWidget(rb);
 	layout->addLayout(joinGroup_layout, i, 0, 1, 2, Qt::AlignRight);
 	i++;
-
-	commentsEdit->setEnabled(!b_join);
 
 	connect(dateEdit, SIGNAL(returnPressed()), valueEdit, SLOT(enterFocus()));
 	if(quantityEdit) {
@@ -819,11 +824,15 @@ Transaction *RefundDialog::createRefund() {
 	else trans->setQuantity(0.0);
 	trans->setValue(-valueEdit->value());
 	trans->setDate(dateEdit->date());
+	if(payeeEdit) {
+		if(trans->type() == TRANSACTION_TYPE_EXPENSE) ((Expense*) trans)->setPayee(payeeEdit->text());
+		else ((Income*) trans)->setPayer(payeeEdit->text());
+	}
 	if(commentsEdit->isEnabled()) trans->setComment(commentsEdit->text());
 	return trans;
 }
 bool RefundDialog::joinIsChecked() {return joinGroup->checkedId() == 1;}
-void RefundDialog::joinToggled(bool b) {commentsEdit->setEnabled(!b);}
+void RefundDialog::joinToggled(bool) {}
 void RefundDialog::accountNextFocus() {
 	if(commentsEdit->isEnabled()) commentsEdit->setFocus();
 	else accept();
@@ -4807,7 +4816,7 @@ void Eqonomize::newRefundRepayment() {
 }
 bool Eqonomize::newRefundRepayment(Transactions *trans) {
 	if(!((trans->generaltype() == GENERAL_TRANSACTION_TYPE_SPLIT && ((SplitTransaction*) trans)->type() == SPLIT_TRANSACTION_TYPE_MULTIPLE_ACCOUNTS) || (trans->generaltype() == GENERAL_TRANSACTION_TYPE_SINGLE && (((Transaction*) trans)->type() == TRANSACTION_TYPE_EXPENSE || ((Transaction*) trans)->type() == TRANSACTION_TYPE_INCOME)))) return false;
-	RefundDialog *dialog = new RefundDialog(trans, this);
+	RefundDialog *dialog = new RefundDialog(trans, this, b_extra);
 	if(dialog->exec() == QDialog::Accepted) {
 		Transaction *new_trans = dialog->createRefund();
 		if(new_trans) {
@@ -6315,7 +6324,7 @@ void Eqonomize::exportQIF() {
 }
 
 void Eqonomize::checkAvailableVersion_readdata() {
-	QString ssystem;
+	QByteArray ssystem;
 #if defined (Q_OS_WIN32)
 	ssystem = "Windows";
 #elif defined(Q_OS_ANDROID)
@@ -7686,8 +7695,10 @@ void Eqonomize::setupActions() {
 				NEW_RADIO_ACTION(action_lang, "Български", ActionSelectLang);
 			} else if(slang == "cs") {
 				NEW_RADIO_ACTION(action_lang, "Čeština", ActionSelectLang);
+			} else if(slang == "da") {
+				NEW_RADIO_ACTION(action_lang, "Dansk", ActionSelectLang);
 			} else if(slang == "de") {
-				NEW_RADIO_ACTION(action_lang, "Deutch", ActionSelectLang);
+				NEW_RADIO_ACTION(action_lang, "Deutsch", ActionSelectLang);
 			} else if(slang == "es") {
 				NEW_RADIO_ACTION(action_lang, "Español", ActionSelectLang);
 			} else if(slang == "fr") {
@@ -7877,7 +7888,7 @@ void Eqonomize::reportBug() {
 	QDesktopServices::openUrl(QUrl("https://github.com/Eqonomize/Eqonomize/issues/new"));
 }
 void Eqonomize::showAbout() {
-	QMessageBox::about(this, tr("About %1").arg(qApp->applicationDisplayName()), QString("<font size=+2><b>%1 v1.5.0</b></font><br><font size=+1>%2</font><br><<font size=+1><i><a href=\"http://eqonomize.github.io/\">http://eqonomize.github.io/</a></i></font><br><br>Copyright © 2006-2008, 2014, 2016-2020 Hanna Knutsson<br>%3").arg(qApp->applicationDisplayName()).arg(tr("A personal accounting program")).arg(tr("License: GNU General Public License Version 3")));
+	QMessageBox::about(this, tr("About %1").arg(qApp->applicationDisplayName()), QString("<font size=+2><b>%1 v1.5.1</b></font><br><font size=+1>%2</font><br><<font size=+1><i><a href=\"http://eqonomize.github.io/\">http://eqonomize.github.io/</a></i></font><br><br>Copyright © 2006-2008, 2014, 2016-2020 Hanna Knutsson<br>%3").arg(qApp->applicationDisplayName()).arg(tr("A personal accounting program")).arg(tr("License: GNU General Public License Version 3")));
 }
 void Eqonomize::showAboutQt() {
 	QMessageBox::aboutQt(this);
@@ -8473,7 +8484,10 @@ void Eqonomize::accountExecuted(QTreeWidgetItem *i, int c) {
 	if(i == NULL) return;
 	switch(c) {
 		case 0: {
-			if(i->childCount() == 0 && account_items.contains(i)) editAccount(account_items[i]);
+			if(i->childCount() == 0 && account_items.contains(i)) {
+				if(account_items[i]->type() == ACCOUNT_TYPE_ASSETS) showAccountTransactions(true);
+				else editAccount(account_items[i]);
+			}
 			if(tag_items.contains(i)) showAccountTransactions(true);
 			break;
 		}
