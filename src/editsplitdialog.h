@@ -31,6 +31,7 @@ class QPushButton;
 class QTreeWidget;
 class QTreeWidgetItem;
 class QLineEdit;
+class QPlainTextEdit;
 class QComboBox;
 class QDateEdit;
 
@@ -61,9 +62,10 @@ class EditMultiAccountWidget : public QWidget {
 
 		EqonomizeValueEdit *quantityEdit;
 		AccountComboBox *categoryCombo;
-		QLineEdit *descriptionEdit, *commentEdit, *fileEdit;
+		QLineEdit *descriptionEdit, *fileEdit;
+		QPlainTextEdit *commentEdit;
 		QTreeWidget *transactionsView;
-		QPushButton *editButton, *removeButton;
+		QPushButton *newButton, *editButton, *removeButton;
 		QLabel *totalLabel, *linksLabelLabel;
 		LinksWidget *linksWidget;
 		TagButton *tagButton;
@@ -118,7 +120,8 @@ class EditDebtPaymentWidget : public QWidget {
 		EqonomizeValueEdit *reductionEdit, *paymentEdit, *interestEdit, *feeEdit;
 		QRadioButton *paidInterestButton, *addedInterestButton;
 		AccountComboBox *accountCombo, *categoryCombo, *loanCombo;
-		QLineEdit *commentEdit, *fileEdit;
+		QLineEdit *fileEdit;
+		QPlainTextEdit *commentEdit;
 		QLabel *paymentLabel, *totalLabel, *linksLabelLabel;
 		LinksWidget *linksWidget;
 
@@ -176,9 +179,10 @@ class EditMultiItemWidget : public QWidget {
 
 		QDateEdit *dateEdit;
 		AccountComboBox *accountCombo;
-		QLineEdit *descriptionEdit, *payeeEdit, *fileEdit, *commentEdit;
+		QLineEdit *descriptionEdit, *payeeEdit, *fileEdit;
+		QPlainTextEdit *commentEdit;
 		QTreeWidget *transactionsView;
-		QPushButton *editButton, *removeButton;
+		QPushButton *newButton, *editButton, *removeButton;
 		QLabel *totalLabel, *linksLabelLabel;
 		LinksWidget *linksWidget;
 		TagButton *tagButton;

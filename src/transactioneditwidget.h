@@ -30,6 +30,7 @@
 #include <QDialog>
 #include <QMenu>
 #include <QPushButton>
+#include <QPlainTextEdit>
 
 class QCheckBox;
 class QLabel;
@@ -37,6 +38,7 @@ class QLineEdit;
 class QComboBox;
 class QHBoxLayout;
 class QGridLayout;
+class QPlainTextEdit;
 
 class EqonomizeDateEdit;
 class QDateEdit;
@@ -131,7 +133,9 @@ class TransactionEditWidget : public QWidget {
 		Currency *splitcurrency;
 		int dateRow, dateLabelCol, dateEditCol, depositRow, depositLabelCol, depositEditCol;
 
-		QLineEdit *descriptionEdit, *lenderEdit, *payeeEdit, *commentsEdit, *fileEdit;
+		QLineEdit *descriptionEdit, *lenderEdit, *payeeEdit, *fileEdit, *commentsEditL;
+		QWidget *commentsEdit;
+		QPlainTextEdit *commentsEditT;
 		AccountComboBox *fromCombo, *toCombo;
 		QComboBox *securityCombo, *currencyCombo;
 		QCheckBox *setQuoteButton;
@@ -143,7 +147,6 @@ class TransactionEditWidget : public QWidget {
 		EqonomizeDateEdit *dateEdit;
 		QHBoxLayout *bottom_layout;
 		QGridLayout *editLayout;
-
 
 	signals:
 
@@ -343,6 +346,19 @@ class LinksWidget : public QWidget {
 
 		void linkClicked(const QString&);
 		void removeLink();
+
+};
+
+class CommentsTextEdit : public QPlainTextEdit {
+
+	public:
+
+		CommentsTextEdit(QWidget *parent = 0);
+		QSize sizeHint() const;
+
+	protected:
+
+		void keyPressEvent(QKeyEvent *e);
 
 };
 

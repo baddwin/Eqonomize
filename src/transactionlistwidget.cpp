@@ -89,6 +89,8 @@ TransactionListWidget::TransactionListWidget(bool extra_parameters, int transact
 	current_value = 0.0;
 	current_quantity = 0.0;
 
+	right_align_values = true;
+
 	key_event = NULL;
 
 	selected_trans = NULL;
@@ -427,6 +429,19 @@ void TransactionListWidget::popupHeaderMenu(const QPoint &p) {
 		ActionSortByCreationTime = headerPopupMenu->addAction(tr("Sort by creation time"));
 		ActionSortByCreationTime->setCheckable(true);
 		connect(ActionSortByCreationTime, SIGNAL(toggled(bool)), this, SLOT(sortByCreationTime(bool)));
+		SeparatorRightAlignValues = headerPopupMenu->addSeparator();
+		ActionRightAlignValues = headerPopupMenu->addAction(tr("Align right"));
+		ActionRightAlignValues->setCheckable(true);
+		connect(ActionRightAlignValues, SIGNAL(toggled(bool)), this, SLOT(rightAlignValues(bool)));
+	}
+	int c = transactionsView->columnAt(p.x());
+	SeparatorRightAlignValues->setVisible(c == 2);
+	ActionRightAlignValues->setVisible(c == 2);
+	if(c == 2) {
+		QSettings settings;
+		ActionRightAlignValues->blockSignals(true);
+		ActionRightAlignValues->setChecked(settings.value("GeneralOptions/rightAlignValues", true).toBool());
+		ActionRightAlignValues->blockSignals(false);
 	}
 	ActionSortByCreationTime->blockSignals(true);
 	ActionSortByCreationTime->setChecked(transactionsView->sortColumn() == transactionsView->columnCount() - 1);
@@ -436,6 +451,9 @@ void TransactionListWidget::popupHeaderMenu(const QPoint &p) {
 void TransactionListWidget::sortByCreationTime(bool b) {
 	if(b) transactionsView->sortByColumn(transactionsView->columnCount() - 1, Qt::DescendingOrder);
 	else transactionsView->sortByColumn(0, Qt::DescendingOrder);
+}
+void TransactionListWidget::rightAlignValues(bool b) {
+	emit valueAlignmentUpdated(b);
 }
 
 extern QString htmlize_string(QString str);
@@ -740,12 +758,12 @@ void TransactionListWidget::editTransaction() {
 			if(i->scheduledTransaction()->isOneTimeTransaction()) {
 				if(mainWin->editScheduledTransaction(i->scheduledTransaction())) clearTransaction();
 			} else {
-				if(mainWin->editOccurrence(i->scheduledTransaction(), i->date())) transactionSelectionChanged();
+				if(mainWin->editOccurrence(i->scheduledTransaction(), i->date())) clearTransaction();
 			}
 		} else if(i->splitTransaction()) {
-			if(mainWin->editSplitTransaction(i->splitTransaction())) transactionSelectionChanged();
+			if(mainWin->editSplitTransaction(i->splitTransaction())) clearTransaction();
 		} else {
-			if(mainWin->editTransaction(i->transaction())) transactionSelectionChanged();
+			if(mainWin->editTransaction(i->transaction())) clearTransaction();
 		}
 	} else if(selection.count() > 1) {
 		budget->setRecordNewAccounts(true);
@@ -1173,7 +1191,6 @@ void TransactionListWidget::modifyTransaction() {
 				++it;
 				i = (TransactionListViewItem*) *it;
 			}
-			return;
 		} else {
 			if(editWidget->validValues()) {
 				ScheduledTransaction *curstranscopy = i->scheduledTransaction();
@@ -1183,10 +1200,8 @@ void TransactionListWidget::modifyTransaction() {
 				mainWin->transactionModified(curstranscopy, oldstrans);
 				delete oldstrans;
 			}
-			return;
 		}
-	}
-	if(editWidget->date() > QDate::currentDate()) {
+	} else if(editWidget->date() > QDate::currentDate()) {
 		Transaction *newtrans = i->transaction()->copy();
 		if(editWidget->modifyTransaction(newtrans)) {
 			ScheduledTransaction *strans = new ScheduledTransaction(budget, newtrans, NULL);
@@ -1215,6 +1230,7 @@ void TransactionListWidget::modifyTransaction() {
 		delete oldtrans;
 		transactionsView->scrollToItem(i);
 	}
+	clearTransaction();
 }
 void TransactionListWidget::removeScheduledTransaction() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
@@ -1593,14 +1609,16 @@ void TransactionListWidget::appendFilterTransaction(Transactions *transs, bool u
 	} else {
 		date = transs->date();
 	}
+	QSettings settings;
+	right_align_values = settings.value("GeneralOptions/rightAlignValues", true).toBool();
 	while(!strans || (!date.isNull() && date <= enddate)) {
 
-		QTreeWidgetItem *i = new TransactionListViewItem(date, trans, strans, split, QString(), QString(), transs->valueString());
+		QTreeWidgetItem *i = new TransactionListViewItem(date, trans, strans, split, QString(), QString(), right_align_values ? transs->valueString() + " " : transs->valueString());
 
 		if(strans && strans->recurrence()) i->setText(0, QLocale().toString(date, QLocale::ShortFormat) + "**");
 		else i->setText(0, QLocale().toString(date, QLocale::ShortFormat));
 		transactionsView->insertTopLevelItem(0, i);
-		i->setTextAlignment(2, Qt::AlignRight | Qt::AlignVCenter);
+		if(right_align_values) i->setTextAlignment(2, Qt::AlignRight | Qt::AlignVCenter);
 
 		if((split && split->cost() > 0.0) || (trans && ((trans->type() == TRANSACTION_TYPE_EXPENSE && trans->value() > 0.0) || (trans->type() == TRANSACTION_TYPE_INCOME && trans->value() < 0.0)))) {
 			if(!expenseColor.isValid()) expenseColor = createExpenseColor(i, 2);
@@ -1624,8 +1642,6 @@ void TransactionListWidget::appendFilterTransaction(Transactions *transs, bool u
 			i->setFont(6, font);
 			i->setFont(7, font);
 		}
-		//i->setTextAlignment(3, Qt::AlignCenter);
-		//i->setTextAlignment(4, Qt::AlignCenter);
 		if((trans && trans == selected_trans) || (split && split == selected_trans)) {
 			transactionsView->blockSignals(true);
 			i->setSelected(true);
@@ -1747,7 +1763,7 @@ void TransactionListWidget::onTransactionModified(Transactions *transs, Transact
 					i->setText(0, QLocale().toString(trans->date(), QLocale::ShortFormat));
 					if(trans->parentSplit()) i->setText(1, trans->description() + "*");
 					else i->setText(1, trans->description());
-					i->setText(2, trans->valueString());
+					i->setText(2, right_align_values ? trans->valueString() + " " : transs->valueString());
 					i->setText(from_col, trans->fromAccount()->name());
 					i->setText(to_col, trans->toAccount()->name());
 					if(payee_col >= 0) {
@@ -1841,7 +1857,7 @@ void TransactionListWidget::onTransactionModified(Transactions *transs, Transact
 					i->setDate(split->date());
 					i->setText(0, QLocale().toString(split->date(), QLocale::ShortFormat));
 					i->setText(1, split->description() + "*");
-					i->setText(2, split->valueString());
+					i->setText(2, right_align_values ? split->valueString() + " " : split->valueString());
 					i->setText(3, split->category()->name());
 					i->setText(4, split->accountsString());
 					if(payee_col >= 0) i->setText(payee_col, split->payeeText());
@@ -2052,6 +2068,10 @@ void TransactionListWidget::transactionSelectionChanged() {
 		if(selection.count() > 1) {
 			for(int index = 0; index < selection.size(); index++) {
 				TransactionListViewItem *i = (TransactionListViewItem*) selection.at(index);
+				if(i->transaction() && i->transaction()->subtype() == TRANSACTION_SUBTYPE_REINVESTED_DIVIDEND) {
+					modifyButton->setEnabled(false);
+					break;
+				}
 				if(i->scheduledTransaction()) {
 					if(i->transaction() && i->transaction()->parentSplit()) {
 						modifyButton->setEnabled(false);
@@ -2096,7 +2116,7 @@ void TransactionListWidget::newRefundRepayment() {
 }
 void TransactionListWidget::updateTransactionActions() {
 	QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
-	bool b_transaction = false, b_scheduledtransaction = false, b_split = false, b_split2 = false, b_join = false, b_delete = false, b_attachment = false, b_select = false, b_time = false, b_tags = false, b_clone = false, b_link = false, b_link_to = false;
+	bool b_transaction = false, b_scheduledtransaction = false, b_split = false, b_split2 = false, b_join = false, b_delete = false, b_attachment = false, b_select = false, b_time = false, b_tags = false, b_clone = false, b_link = false, b_link_to = false, b_edit = true;
 	bool refundable = false, repayable = false;
 	QList<Transactions*> list;
 	Transactions *link_trans = mainWin->getLinkTransaction();
@@ -2154,6 +2174,10 @@ void TransactionListWidget::updateTransactionActions() {
 		for(int index = 0; index < selection.size(); index++) {
 			if(index >= 10) b_link = false;
 			i = (TransactionListViewItem*) selection.at(index);
+			if((b_edit || b_join) && i->transaction() && i->transaction()->subtype() == TRANSACTION_SUBTYPE_REINVESTED_DIVIDEND) {
+				b_join = false;
+				b_edit = false;
+			}
 			if(b_join && (i->splitTransaction() || i->scheduledTransaction() || i->transaction()->parentSplit())) {
 				b_join = false;
 			}
@@ -2215,12 +2239,13 @@ void TransactionListWidget::updateTransactionActions() {
 			}
 		}
 	}
+	if(!b_transaction) b_edit = false;
 	mainWin->ActionCreateLink->setEnabled(b_link);
 	mainWin->ActionLinkTo->setEnabled(b_link_to);
 	mainWin->ActionNewRefund->setEnabled(refundable);
 	mainWin->ActionNewRepayment->setEnabled(repayable);
 	mainWin->ActionNewRefundRepayment->setEnabled(refundable || repayable);
-	mainWin->ActionEditTransaction->setEnabled(b_transaction);
+	mainWin->ActionEditTransaction->setEnabled(b_edit);
 	mainWin->ActionEditTimestamp->setEnabled(b_time);
 	mainWin->ActionDeleteTransaction->setEnabled(b_transaction);
 	mainWin->ActionSelectAssociatedFile->setEnabled(b_select);

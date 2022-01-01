@@ -341,7 +341,7 @@ class SecurityListViewItem : public QTreeWidgetItem {
 	protected:
 		Security *o_security;
 	public:
-		SecurityListViewItem(Security *sec, QString s1, QString s2 = QString(), QString s3 = QString(), QString s4 = QString(), QString s5 = QString(), QString s6 = QString(), QString s7 = QString(), QString s8 = QString(), QString s9 = QString()) : QTreeWidgetItem(UserType), o_security(sec) {
+		SecurityListViewItem(Security *sec, QString s1, QString s2 = QString(), QString s3 = QString(), QString s4 = QString(), QString s5 = QString(), QString s6 = QString(), QString s7 = QString(), QString s8 = QString(), QString s9 = QString(), bool right_align_values = true) : QTreeWidgetItem(UserType), o_security(sec) {
 			setText(0, s1);
 			setText(1, s2);
 			setText(2, s3);
@@ -351,12 +351,14 @@ class SecurityListViewItem : public QTreeWidgetItem {
 			setText(6, s7);
 			setText(7, s8);
 			setText(8, s9);
-			setTextAlignment(1, Qt::AlignRight | Qt::AlignVCenter);
-			setTextAlignment(2, Qt::AlignRight | Qt::AlignVCenter);
-			setTextAlignment(3, Qt::AlignRight | Qt::AlignVCenter);
-			setTextAlignment(4, Qt::AlignRight | Qt::AlignVCenter);
-			setTextAlignment(5, Qt::AlignRight | Qt::AlignVCenter);
-			setTextAlignment(6, Qt::AlignRight | Qt::AlignVCenter);
+			if(right_align_values) {
+				setTextAlignment(1, Qt::AlignRight | Qt::AlignVCenter);
+				setTextAlignment(2, Qt::AlignRight | Qt::AlignVCenter);
+				setTextAlignment(3, Qt::AlignRight | Qt::AlignVCenter);
+				setTextAlignment(4, Qt::AlignRight | Qt::AlignVCenter);
+				setTextAlignment(5, Qt::AlignRight | Qt::AlignVCenter);
+				setTextAlignment(6, Qt::AlignRight | Qt::AlignVCenter);
+			}
 		}
 		bool operator<(const QTreeWidgetItem &i_pre) const {
 			int col = 0;
@@ -410,7 +412,7 @@ class ScheduleListViewItem : public QTreeWidgetItem {
 		QDate d_date;
 		QColor expenseColor, incomeColor, transferColor;
 	public:
-		ScheduleListViewItem(QTreeWidget *parent, ScheduledTransaction *strans, const QDate &trans_date);
+		ScheduleListViewItem(QTreeWidget *parent, ScheduledTransaction *strans, const QDate &trans_date, bool right_align_values);
 		bool operator<(const QTreeWidgetItem &i_pre) const;
 		ScheduledTransaction *scheduledTransaction() const;
 		void setScheduledTransaction(ScheduledTransaction *strans);
@@ -418,8 +420,8 @@ class ScheduleListViewItem : public QTreeWidgetItem {
 		void setDate(const QDate &newdate);
 };
 
-ScheduleListViewItem::ScheduleListViewItem(QTreeWidget *parent, ScheduledTransaction *strans, const QDate &trans_date) : QTreeWidgetItem(parent, UserType) {
-	setTextAlignment(3, Qt::AlignRight | Qt::AlignVCenter);
+ScheduleListViewItem::ScheduleListViewItem(QTreeWidget *parent, ScheduledTransaction *strans, const QDate &trans_date, bool right_align_values) : QTreeWidgetItem(parent, UserType) {
+	if(right_align_values) setTextAlignment(3, Qt::AlignRight | Qt::AlignVCenter);
 	setScheduledTransaction(strans);
 	setDate(trans_date);
 }
@@ -453,7 +455,7 @@ void ScheduleListViewItem::setScheduledTransaction(ScheduledTransaction *strans)
 	setText(2, strans->description());
 	if(strans->transaction()->generaltype() == GENERAL_TRANSACTION_TYPE_SINGLE) {
 		Transaction *trans = (Transaction*) strans->transaction();
-		setText(3, trans->valueString());
+		setText(3, textAlignment(3) & Qt::AlignRight ? trans->valueString() + " " : trans->valueString());
 		setText(4, trans->fromAccount()->name());
 		setText(5, trans->toAccount()->name());
 		if((trans->type() == TRANSACTION_TYPE_EXPENSE && trans->value() > 0.0) || (trans->type() == TRANSACTION_TYPE_INCOME && trans->value() < 0.0)) {
@@ -787,7 +789,9 @@ RefundDialog::RefundDialog(Transactions *trans, QWidget *parent, bool extra_para
 	connect(accountCombo, SIGNAL(returnPressed()), this, SLOT(accountNextFocus()));
 	connect(commentsEdit, SIGNAL(returnPressed()), this, SLOT(accept()));
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
@@ -920,7 +924,9 @@ EditSecurityTradeDialog::EditSecurityTradeDialog(Budget *budg, Security *sec, QW
 	dateEdit->setCalendarPopup(true);
 	layout->addWidget(dateEdit, 5, 1);
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
@@ -1094,7 +1100,9 @@ EditQuotationsDialog::EditQuotationsDialog(Security *sec, QWidget *parent) : QDi
 	buttonsLayout->addStretch(1);
 
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
@@ -1486,7 +1494,9 @@ void EditQuotationsDialog::importQuotations() {
 			valueFormatCombo->addItem("1.000.000,00");
 			grid->addWidget(valueFormatCombo, ps > 1 ? 2 : 1, 1);
 		}
-		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+		buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+		buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 		buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 		connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 		connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -1825,7 +1835,9 @@ void ConfirmScheduleDialog::postpone() {
 	QCalendarWidget *datePicker = new QCalendarWidget(dialog);
 	datePicker->setSelectedDate(QDate::currentDate().addDays(1));
 	box1->addWidget(datePicker);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -2235,7 +2247,9 @@ EditSecurityDialog::EditSecurityDialog(Budget *budg, QWidget *parent, QString ti
 	grid->addWidget(descriptionEdit, 9, 0, 1, 2);
 	nameEdit->setFocus();
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
@@ -2430,6 +2444,8 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	b_extra = settings.value("useExtraProperties", true).toBool();
 	int initial_period = settings.value("initialPeriod", int(0)).toInt();
 	if(initial_period < 0 || initial_period > 4) initial_period = 0;
+
+	right_align_values = settings.value("GeneralOptions/rightAlignValues", true).toBool();
 
 	bool b_uerftd = settings.value("useExchangeRateForTransactionDate", false).toBool();
 	budget->setDefaultTransactionConversionRateDate(b_uerftd ? TRANSACTION_CONVERSION_RATE_AT_DATE : TRANSACTION_CONVERSION_LATEST_RATE);
@@ -2677,6 +2693,7 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	expensesWidget = new TransactionListWidget(b_extra, TRANSACTION_TYPE_EXPENSE, budget, this, expenses_page);
 	connect(expensesWidget, SIGNAL(accountAdded(Account*)), this, SLOT(accountAdded(Account*)));
 	connect(expensesWidget, SIGNAL(currenciesModified()), this, SLOT(currenciesModified()));
+	connect(expensesWidget, SIGNAL(valueAlignmentUpdated(bool)), this, SLOT(valueAlignmentUpdated(bool)));
 	connect(expensesWidget, SIGNAL(tagAdded(QString)), this, SLOT(tagAdded(QString)));
 	expensesLayout->addWidget(expensesWidget);
 
@@ -2684,7 +2701,7 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	incomesLayout->setContentsMargins(0, 0, 0, 0);
 	incomesWidget = new TransactionListWidget(b_extra, TRANSACTION_TYPE_INCOME, budget, this, incomes_page);
 	connect(incomesWidget, SIGNAL(accountAdded(Account*)), this, SLOT(accountAdded(Account*)));
-	connect(incomesWidget, SIGNAL(currenciesModified()), this, SLOT(currenciesModified()));
+	connect(incomesWidget, SIGNAL(valueAlignmentUpdated(bool)), this, SLOT(valueAlignmentUpdated(bool)));
 	connect(incomesWidget, SIGNAL(tagAdded(QString)), this, SLOT(tagAdded(QString)));
 	incomesLayout->addWidget(incomesWidget);
 
@@ -2692,7 +2709,7 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	transfersLayout->setContentsMargins(0, 0, 0, 0);
 	transfersWidget = new TransactionListWidget(b_extra, TRANSACTION_TYPE_TRANSFER, budget, this, transfers_page);
 	connect(transfersWidget, SIGNAL(accountAdded(Account*)), this, SLOT(accountAdded(Account*)));
-	connect(transfersWidget, SIGNAL(currenciesModified()), this, SLOT(currenciesModified()));
+	connect(transfersWidget, SIGNAL(valueAlignmentUpdated(bool)), this, SLOT(valueAlignmentUpdated(bool)));
 	connect(transfersWidget, SIGNAL(tagAdded(QString)), this, SLOT(tagAdded(QString)));
 	transfersLayout->addWidget(transfersWidget);
 
@@ -3076,7 +3093,9 @@ void Eqonomize::setScheduleConfirmationTime() {
 	timeEdit->setTime(settings.value("scheduleConfirmationTime", QTime(18, 0)).toTime());
 	layout->addWidget(timeEdit, 0, 1);
 	box1->addLayout(layout);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -3139,7 +3158,9 @@ void Eqonomize::setBudgetPeriod() {
 	yearlyMonthCombo->setCurrentIndex(budget->budgetMonth() - 1);
 	layout->addWidget(yearlyMonthCombo, 1, 1);
 	box1->addLayout(layout);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -3393,7 +3414,7 @@ void Eqonomize::editSecurity() {
 	editSecurity(i);
 }
 void Eqonomize::updateSecuritiesStatistics() {
-	securitiesStatLabel->setText(QString("<div align=\"right\"><b>%1</b> %5 &nbsp; <b>%2</b> %6 &nbsp; <b>%3</b> %7 &nbsp; <b>%4</b> %8%</div>").arg(tr("Total value:")).arg(tr("Cost:")).arg(tr("Profit:")).arg(tr("Rate:")).arg(budget->formatMoney(total_value), budget->formatMoney(total_cost)).arg(budget->formatMoney(total_profit)).arg(budget->formatValue(total_rate * 100, 2)));
+	securitiesStatLabel->setText(QString("<div align=\"right\"><b>%1</b> %4 &nbsp; <b>%2</b> %5 &nbsp; <b>%3</b> %6</div>").arg(tr("Total value:")).arg(tr("Cost:")).arg(tr("Profit:")).arg(budget->formatMoney(total_value), budget->formatMoney(total_cost)).arg(budget->formatMoney(total_profit)));
 }
 void Eqonomize::deleteSecurity() {
 	SecurityListViewItem *i = (SecurityListViewItem*) selectedItem(securitiesView);
@@ -3405,7 +3426,8 @@ void Eqonomize::deleteSecurity() {
 		total_rate *= total_cost;
 		total_cost -= i->scost;
 		total_rate -= i->scost * i->rate;
-		if(total_cost != 0.0) total_rate /= total_cost;
+		if(is_zero(total_cost)) total_rate = 0.0;
+		else total_rate /= total_cost;
 		total_profit -= i->sprofit;
 		updateSecuritiesStatistics();
 		delete i;
@@ -3510,7 +3532,9 @@ void Eqonomize::setQuotation() {
 	EqonomizeDateEdit *dateEdit = new EqonomizeDateEdit(QDate::currentDate(), dialog);
 	dateEdit->setCalendarPopup(true);
 	grid->addWidget(dateEdit, 1, 1);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -3628,7 +3652,7 @@ void Eqonomize::appendSecurity(Security *security) {
 	}
 	Currency *cur = security->currency();
 	if(!cur) cur = budget->defaultCurrency();
-	SecurityListViewItem *i = new SecurityListViewItem(security, security->name(), cur->formatValue(value), budget->formatValue(shares, security->decimals()), cur->formatValue(quotation, security->quotationDecimals()), cur->formatValue(cost), cur->formatValue(profit), budget->formatValue(rate * 100, 2) + "%", QString(), security->account()->name());
+	SecurityListViewItem *i = new SecurityListViewItem(security, security->name(), cur->formatValue(value), budget->formatValue(shares, security->decimals()), cur->formatValue(quotation, security->quotationDecimals()), cur->formatValue(cost), cur->formatValue(profit), right_align_values ? budget->formatValue(rate * 100, 2) + "% " : budget->formatValue(rate * 100, 2) + "%", QString(), security->account()->name(), right_align_values);
 	i->rate = rate;
 	i->shares = shares;
 	if(cur != budget->defaultCurrency()) {
@@ -3662,11 +3686,12 @@ void Eqonomize::appendSecurity(Security *security) {
 	if(rate < 0.0) i->setForeground(6, createExpenseColor(i, 0));
 	else if(rate > 0.0) i->setForeground(6, createIncomeColor(i, 0));
 	else i->setForeground(6, createTransferColor(i, 0));
-	total_rate *= total_value;
+	total_rate *= total_cost;
 	total_value += i->value;
 	total_cost += i->scost;
-	total_rate += i->value * rate;
-	if(total_cost != 0.0) total_rate /= total_value;
+	total_rate += i->scost * rate;
+	if(is_zero(total_cost)) total_rate = 0.0;
+	else total_rate /= total_cost;
 	total_profit += i->sprofit;
 	updateSecuritiesStatistics();
 	securitiesView->setSortingEnabled(true);
@@ -3687,11 +3712,12 @@ void Eqonomize::updateSecurity(QTreeWidgetItem *i_pre) {
 	SecurityListViewItem* i = (SecurityListViewItem*) i_pre;
 	Security *security = i->security();
 	Currency *cur = security->currency();
-	total_rate *= total_value;
+	total_rate *= total_cost;
 	total_value -= i->value;
 	total_cost -= i->scost;
-	total_rate -= i->value * i->rate;
-	if(total_cost != 0.0) total_rate /= total_value;
+	total_rate += i->scost * i->rate;
+	if(is_zero(total_cost)) total_rate = 0.0;
+	else total_rate /= total_cost;
 	total_profit -= ((SecurityListViewItem*) i)->sprofit;
 	double value = 0.0, cost = 0.0, rate = 0.0, profit = 0.0, quotation = 0.0, shares = 0.0;
 	value = security->value(securities_to_date, 1);
@@ -3723,11 +3749,12 @@ void Eqonomize::updateSecurity(QTreeWidgetItem *i_pre) {
 		i->value = value;
 		i->cost = cost;
 	}
-	total_rate *= total_value;
+	total_rate *= total_cost;
 	total_value += i->value;
 	total_cost += i->scost;
-	total_rate += i->value * rate;
-	if(total_cost != 0.0) total_rate /= total_value;
+	total_rate += i->scost * rate;
+	if(is_zero(total_cost) != 0.0) total_rate = 0.0;
+	else total_rate /= total_cost;
 	total_profit += i->profit;
 	i->setText(0, security->name());
 	switch(security->type()) {
@@ -3741,7 +3768,7 @@ void Eqonomize::updateSecurity(QTreeWidgetItem *i_pre) {
 	i->setText(3, cur->formatValue(quotation, security->quotationDecimals()));
 	i->setText(4, cur->formatValue(cost));
 	i->setText(5, cur->formatValue(profit));
-	i->setText(6, budget->formatValue(rate * 100, 2) + "%");
+	i->setText(6, right_align_values ? budget->formatValue(rate * 100, 2) + "% " : budget->formatValue(rate * 100, 2) + "%");
 	i->setText(8, security->account()->name());
 	if(cost > 0.0) i->setForeground(4, createExpenseColor(i, 0));
 	else if(cost < 0.0) i->setForeground(4, createIncomeColor(i, 0));
@@ -4168,7 +4195,9 @@ bool Eqonomize::editTimestamp(QList<Transactions*> trans, QWidget *parent) {
 		grid->addWidget(timeEdit.last(), row, (i > 0 || trans.count() > 1) ? 1 : 0);
 		row++;
 	}
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -4627,6 +4656,19 @@ void Eqonomize::popupScheduleHeaderMenu(const QPoint &p) {
 				connect(a, SIGNAL(toggled(bool)), this, SLOT(hideScheduleColumn(bool)));
 			}
 		}
+		SeparatorRightAlignValues = scheduleHeaderPopupMenu->addSeparator();
+		ActionRightAlignValues = scheduleHeaderPopupMenu->addAction(tr("Align right"));
+		ActionRightAlignValues->setCheckable(true);
+		connect(ActionRightAlignValues, SIGNAL(toggled(bool)), this, SLOT(valueAlignmentUpdated(bool)));
+	}
+	int c = scheduleView->columnAt(p.x());
+	SeparatorRightAlignValues->setVisible(c == 3);
+	ActionRightAlignValues->setVisible(c == 3);
+	if(c == 3) {
+		QSettings settings;
+		ActionRightAlignValues->blockSignals(true);
+		ActionRightAlignValues->setChecked(right_align_values);
+		ActionRightAlignValues->blockSignals(false);
 	}
 	scheduleHeaderPopupMenu->popup(scheduleView->header()->viewport()->mapToGlobal(p));
 }
@@ -5971,7 +6013,9 @@ bool Eqonomize::openURL(const QUrl& url, bool merge) {
 		box1->addWidget(rdcButton);
 		QCheckBox *rdsButton = new QCheckBox(tr("Rename duplicate securities"), dialog);
 		box1->addWidget(rdsButton);
-		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+		buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+		buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 		buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 		connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 		connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -6074,7 +6118,9 @@ void Eqonomize::openSynchronizationSettings() {
 	syncAutoBox->setChecked(budget->o_sync->autosync);
 	grid->addWidget(syncAutoBox, 4, 0, 1, 2);
 	box1->addLayout(grid);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, syncDialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	uploadButton = buttonBox->addButton(tr("Upload"), QDialogButtonBox::ActionRole);
 	uploadButton->setEnabled(!budget->o_sync->upload.isEmpty());
@@ -6503,6 +6549,16 @@ void Eqonomize::updateExchangeRates(bool do_currencies_modified) {
 void Eqonomize::cancelUpdateExchangeRates() {
 	updateExchangeRatesReply->abort();
 }
+void Eqonomize::valueAlignmentUpdated(bool b) {
+	QSettings settings;
+	settings.setValue("GeneralOptions/rightAlignValues", b);
+	right_align_values = b;
+	updateSecurities();
+	updateScheduledTransactions();
+	expensesWidget->filterTransactions();
+	incomesWidget->filterTransactions();
+	transfersWidget->filterTransactions();
+}
 void Eqonomize::currenciesModified() {
 	expensesWidget->updateFromAccounts();
 	incomesWidget->updateToAccounts();
@@ -6585,7 +6641,9 @@ void Eqonomize::setMainCurrency() {
 	QCheckBox *replaceButton = new QCheckBox(tr("Replace all occurrences of the former main currency"), dialog);
 	replaceButton->setChecked(false);
 	grid->addWidget(replaceButton, 1, 0, 1, 2);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -7888,7 +7946,7 @@ void Eqonomize::reportBug() {
 	QDesktopServices::openUrl(QUrl("https://github.com/Eqonomize/Eqonomize/issues/new"));
 }
 void Eqonomize::showAbout() {
-	QMessageBox::about(this, tr("About %1").arg(qApp->applicationDisplayName()), QString("<font size=+2><b>%1 v1.5.1</b></font><br><font size=+1>%2</font><br><<font size=+1><i><a href=\"http://eqonomize.github.io/\">http://eqonomize.github.io/</a></i></font><br><br>Copyright © 2006-2008, 2014, 2016-2020 Hanna Knutsson<br>%3").arg(qApp->applicationDisplayName()).arg(tr("A personal accounting program")).arg(tr("License: GNU General Public License Version 3")));
+	QMessageBox::about(this, tr("About %1").arg(qApp->applicationDisplayName()), QString("<font size=+2><b>%1 v1.5.2</b></font><br><font size=+1>%2</font><br><<font size=+1><i><a href=\"http://eqonomize.github.io/\">http://eqonomize.github.io/</a></i></font><br><br>Copyright © 2006-2008, 2014, 2016-2020 Hanna Knutsson<br>%3").arg(qApp->applicationDisplayName()).arg(tr("A personal accounting program")).arg(tr("License: GNU General Public License Version 3")));
 }
 void Eqonomize::showAboutQt() {
 	QMessageBox::aboutQt(this);
@@ -8300,12 +8358,12 @@ void Eqonomize::updateScheduledTransactions() {
 	scheduleView->clear();
 	for(ScheduledTransactionList<ScheduledTransaction*>::const_iterator it = budget->scheduledTransactions.constBegin(); it != budget->scheduledTransactions.constEnd(); ++it) {
 		ScheduledTransaction *strans = *it;
-		new ScheduleListViewItem(scheduleView, strans, strans->firstOccurrence());
+		new ScheduleListViewItem(scheduleView, strans, strans->firstOccurrence(), right_align_values);
 	}
 	scheduleView->setSortingEnabled(true);
 }
 void Eqonomize::appendScheduledTransaction(ScheduledTransaction *strans) {
-	new ScheduleListViewItem(scheduleView, strans, strans->firstOccurrence());
+	new ScheduleListViewItem(scheduleView, strans, strans->firstOccurrence(), right_align_values);
 	scheduleView->setSortingEnabled(true);
 }
 
@@ -8585,7 +8643,9 @@ void Eqonomize::balanceAccount(Account *i_account) {
 	label->setWordWrap(true);
 	wbox->addWidget(label);
 	box1->addWidget(frame);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -8982,7 +9042,9 @@ void Eqonomize::deleteAccount() {
 			grid->addWidget(moveToButton, 1, 0);
 			grid->addWidget(moveToCombo, 1, 1);
 			grid->addWidget(deleteButton, 2, 0, 1, 2);
-			QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+			QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+			buttonBox->button(QDialogButtonBox::Ok)->setAutoDefault(false);
+			buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 			buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 			buttonBox->button(QDialogButtonBox::Cancel)->setDefault(true);
 			connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));

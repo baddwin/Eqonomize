@@ -193,7 +193,9 @@ EditDebtPaymentDialog::EditDebtPaymentDialog(Budget *budg, QWidget *parent, Asse
 	editWidget = new EditDebtPaymentWidget(budg, this, default_loan, allow_account_creation, only_interest);
 	box1->addWidget(editWidget);
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
@@ -223,7 +225,9 @@ EditMultiAccountDialog::EditMultiAccountDialog(Budget *budg, QWidget *parent, bo
 	editWidget = new EditMultiAccountWidget(budg, this, create_expenses, extra_parameters, allow_account_creation);
 	box1->addWidget(editWidget);
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
@@ -252,7 +256,9 @@ EditMultiItemDialog::EditMultiItemDialog(Budget *budg, QWidget *parent, AssetsAc
 	editWidget = new EditMultiItemWidget(budg, this, default_account, extra_parameters, allow_account_creation);
 	box1->addWidget(editWidget);
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), this, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), this, SLOT(accept()));
@@ -384,8 +390,11 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	openFileButton->setFocusPolicy(Qt::ClickFocus);
 	grid->addLayout(fileLayout, b_extra ? 5 : 4, 1);
 
-	grid->addWidget(new QLabel(tr("Comments:")), b_extra ? 6 : 5, 0);
-	commentEdit = new QLineEdit();
+	QLabel *commentLabel = new QLabel(tr("Comments:"));
+	commentLabel->setMinimumHeight(descriptionEdit->sizeHint().height());
+	grid->addWidget(commentLabel, b_extra ? 6 : 5, 0, Qt::AlignTop | Qt::AlignLeft);
+	commentEdit = new CommentsTextEdit(this);
+	commentEdit->setFixedHeight(commentEdit->sizeHint().height());
 	grid->addWidget(commentEdit, b_extra ? 6 : 5, 1);
 
 	linksWidget = new LinksWidget(this, b_create_accounts);
@@ -425,7 +434,7 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	transactionsView->setMinimumWidth(transactionsView->columnWidth(0) + transactionsView->columnWidth(1) + transactionsView->columnWidth(2) +  transactionsView->columnWidth(3) + 10);
 	box2->addWidget(transactionsView);
 	QVBoxLayout *buttons = new QVBoxLayout();
-	QPushButton *newButton = new QPushButton(tr("New"));
+	newButton = new QPushButton(tr("New"));
 	buttons->addWidget(newButton);
 	QMenu *newMenu = new QMenu(this);
 	newButton->setMenu(newMenu);
@@ -460,7 +469,6 @@ EditMultiItemWidget::EditMultiItemWidget(Budget *budg, QWidget *parent, AssetsAc
 	}
 	connect(tagButton, SIGNAL(returnPressed()), fileEdit, SLOT(setFocus()));
 	connect(fileEdit, SIGNAL(returnPressed()), commentEdit, SLOT(setFocus()));
-	connect(commentEdit, SIGNAL(returnPressed()), newButton, SLOT(setFocus()));
 
 	connect(selectFileButton, SIGNAL(clicked()), this, SLOT(selectFile()));
 	connect(openFileButton, SIGNAL(clicked()), this, SLOT(openFile()));
@@ -633,7 +641,7 @@ MultiItemTransaction *EditMultiItemWidget::createTransaction() {
 	linksWidget->updateTransaction(split);
 	if(payeeEdit) split->setPayee(payeeEdit->text());
 	if(fileEdit) split->setAssociatedFile(fileEdit->text());
-	split->setComment(commentEdit->text());
+	split->setComment(commentEdit->toPlainText());
 	QTreeWidgetItemIterator it(transactionsView);
 	QTreeWidgetItem *i = *it;
 	if(tagButton) tagButton->modifyTransaction(split);
@@ -661,7 +669,7 @@ void EditMultiItemWidget::setTransaction(MultiItemTransaction *split) {
 	accountCombo->setCurrentAccount(split->account());
 	if(payeeEdit) payeeEdit->setText(split->payee());
 	if(fileEdit) fileEdit->setText(split->associatedFile());
-	commentEdit->setText(split->comment());
+	commentEdit->setPlainText(split->comment());
 	transactionsView->clear();
 	QList<QTreeWidgetItem *> items;
 	tagButton->setTransaction(split);
@@ -837,8 +845,11 @@ EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bo
 	openFileButton->setFocusPolicy(Qt::ClickFocus);
 	grid->addLayout(fileLayout, b_extra ? 4 : 3, 1);
 
-	grid->addWidget(new QLabel(tr("Comments:")), b_extra ? 5 : 4, 0);
-	commentEdit = new QLineEdit();
+	QLabel *commentLabel = new QLabel(tr("Comments:"));
+	commentLabel->setMinimumHeight(descriptionEdit->sizeHint().height());
+	grid->addWidget(commentLabel, b_extra ? 5 : 4, 0, Qt::AlignTop | Qt::AlignLeft);
+	commentEdit = new CommentsTextEdit(this);
+	commentEdit->setFixedHeight(commentEdit->sizeHint().height());
 	grid->addWidget(commentEdit, b_extra ? 5 : 4, 1);
 
 	linksWidget = new LinksWidget(this, b_create_accounts);
@@ -875,7 +886,7 @@ EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bo
 	transactionsView->setMinimumWidth(transactionsView->columnWidth(0) + transactionsView->columnWidth(1) + transactionsView->columnWidth(2) + (b_extra ? transactionsView->columnWidth(3) : 0) + 10);
 	box2->addWidget(transactionsView);
 	QVBoxLayout *buttons = new QVBoxLayout();
-	QPushButton *newButton = new QPushButton(tr("New"));
+	newButton = new QPushButton(tr("New"));
 	buttons->addWidget(newButton);
 	editButton = new QPushButton(tr("Edit…"));
 	buttons->addWidget(editButton);
@@ -899,7 +910,6 @@ EditMultiAccountWidget::EditMultiAccountWidget(Budget *budg, QWidget *parent, bo
 	connect(categoryCombo, SIGNAL(returnPressed()), tagButton, SLOT(setFocus()));
 	connect(tagButton, SIGNAL(returnPressed()), fileEdit, SLOT(setFocus()));
 	connect(fileEdit, SIGNAL(returnPressed()), commentEdit, SLOT(setFocus()));
-	connect(commentEdit, SIGNAL(returnPressed()), newButton, SLOT(setFocus()));
 
 	connect(selectFileButton, SIGNAL(clicked()), this, SLOT(selectFile()));
 	connect(openFileButton, SIGNAL(clicked()), this, SLOT(openFile()));
@@ -1037,7 +1047,7 @@ MultiAccountTransaction *EditMultiAccountWidget::createTransaction() {
 	CategoryAccount *account = selectedCategory();
 	MultiAccountTransaction *split = new MultiAccountTransaction(budget, account, descriptionEdit->text());
 	linksWidget->updateTransaction(split);
-	split->setComment(commentEdit->text());
+	split->setComment(commentEdit->toPlainText());
 	split->setAssociatedFile(fileEdit->text());
 	tagButton->modifyTransaction(split);
 	QTreeWidgetItemIterator it(transactionsView);
@@ -1052,7 +1062,7 @@ MultiAccountTransaction *EditMultiAccountWidget::createTransaction() {
 }
 void EditMultiAccountWidget::setValues(QString description_string, CategoryAccount *category_account, double quantity_value, QString comment_string) {
 	descriptionEdit->setText(description_string);
-	commentEdit->setText(comment_string);
+	commentEdit->setPlainText(comment_string);
 	if(quantityEdit) quantityEdit->setValue(quantity_value);
 	categoryCombo->setCurrentAccount(category_account);
 }
@@ -1070,7 +1080,7 @@ void EditMultiAccountWidget::setTransaction(Transactions *transs) {
 		linksLabelLabel->show();
 	}
 	descriptionEdit->setText(transs->description());
-	commentEdit->setText(transs->comment());
+	commentEdit->setPlainText(transs->comment());
 	fileEdit->setText(transs->associatedFile());
 	if(quantityEdit) quantityEdit->setValue(transs->quantity());
 	transactionsView->clear();
@@ -1111,7 +1121,7 @@ void EditMultiAccountWidget::setTransaction(MultiAccountTransaction *split, cons
 	descriptionEdit->setText(split->description());
 	categoryCombo->setCurrentAccount(split->category());
 	if(quantityEdit) quantityEdit->setValue(split->quantity());
-	commentEdit->setText(split->comment());
+	commentEdit->setPlainText(split->comment());
 	fileEdit->setText(split->associatedFile());
 	transactionsView->clear();
 	QList<QTreeWidgetItem *> items;
@@ -1189,7 +1199,7 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 
 	QGridLayout *grid = new QGridLayout();
 	box1->addLayout(grid);
-	box1->addStretch(1);
+	if(only_interest) box1->addStretch(1);
 
 	int row = 0;
 
@@ -1284,8 +1294,10 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 		row++;
 		connect(selectFileButton, SIGNAL(clicked()), this, SLOT(selectFile()));
 		connect(openFileButton, SIGNAL(clicked()), this, SLOT(openFile()));
-		grid->addWidget(new QLabel(tr("Comments:")), row, 0);
-		commentEdit = new QLineEdit();
+		QLabel *commentLabel = new QLabel(tr("Comments:"));
+		commentLabel->setMinimumHeight(fileEdit->sizeHint().height());
+		grid->addWidget(commentLabel, row, 0, Qt::AlignTop | Qt::AlignLeft);
+		commentEdit = new CommentsTextEdit(this);
 		grid->addWidget(commentEdit, row, 1); row++;
 	}
 
@@ -1328,12 +1340,11 @@ EditDebtPaymentWidget::EditDebtPaymentWidget(Budget *budg, QWidget *parent, Asse
 		connect(categoryCombo, SIGNAL(accountSelected(Account*)), fileEdit, SLOT(setFocus()));
 		connect(categoryCombo, SIGNAL(returnPressed()), fileEdit, SLOT(setFocus()));
 		connect(fileEdit, SIGNAL(returnPressed()), commentEdit, SLOT(setFocus()));
-		connect(commentEdit, SIGNAL(returnPressed()), this, SIGNAL(addmodify()));
 	}
 
 	if(dateEdit) connect(dateEdit, SIGNAL(dateChanged(const QDate&)), this, SIGNAL(dateChanged(const QDate&)));
 	if(dateEdit) connect(dateEdit, SIGNAL(dateChanged(const QDate&)), this, SLOT(hasBeenModified()));
-	if(commentEdit) connect(commentEdit, SIGNAL(textEdited(const QString&)), this, SLOT(hasBeenModified()));
+	if(commentEdit) connect(commentEdit, SIGNAL(textChanged()), this, SLOT(hasBeenModified()));
 	if(fileEdit) connect(fileEdit, SIGNAL(textChanged(const QString&)), this, SLOT(hasBeenModified()));
 	if(feeEdit) connect(feeEdit, SIGNAL(valueChanged(double)), this, SLOT(valueChanged()));
 	if(paymentEdit) connect(paymentEdit, SIGNAL(valueChanged(double)), this, SLOT(valueChanged()));
@@ -1580,7 +1591,7 @@ DebtPayment *EditDebtPaymentWidget::createTransaction() {
 	if(feeEdit && feeEdit->value() > 0.0) split->setFee(feeEdit->value());
 	if(interestEdit && interestEdit->value() > 0.0) split->setInterest(interestEdit->value(), !(addedInterestButton && addedInterestButton->isChecked()));
 	if((feeEdit && feeEdit->value() > 0.0) || (interestEdit && interestEdit->value() > 0.0)) split->setExpenseCategory(category);
-	if(commentEdit) split->setComment(commentEdit->text());
+	if(commentEdit) split->setComment(commentEdit->toPlainText());
 	if(fileEdit) split->setAssociatedFile(fileEdit->text());
 	return split;
 }
@@ -1594,7 +1605,7 @@ void EditDebtPaymentWidget::setTransaction(DebtPayment *split) {
 		linksLabelLabel->show();
 	}
 	if(dateEdit) dateEdit->setDate(split->date());
-	if(commentEdit) commentEdit->setText(split->comment());
+	if(commentEdit) commentEdit->setPlainText(split->comment());
 	if(fileEdit) fileEdit->setText(split->associatedFile());
 	if(loanCombo) loanCombo->setCurrentAccount(split->loan());
 	if(accountCombo) accountCombo->setCurrentAccount(split->account());

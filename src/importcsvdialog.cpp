@@ -581,7 +581,9 @@ void ImportCSVDialog::savePreset() {
 	}
 	presetEdit->setCurrentText(s_preset);
 	box1->addWidget(presetEdit);
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 	connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
@@ -998,21 +1000,28 @@ void testCSVDate(const QString &str, bool &p1, bool &p2, bool &p3, bool &p4, boo
 			}
 		}
 		if(separator < 0) separator = 0;
-		p1 = (separator != 0);
-		p2 = (separator != 0);
+		p1 = (separator != 0 || str.length() == 6);
+		p2 = (separator != 0 || str.length() == 6);
 		p3 = true;
-		p4 = (separator != 0);
-		ly = false;
+		p4 = (separator != 0 || str.length() == 6);
+		ly = (separator == 0 && str.length() >= 8);
 	}
 	if(p1 + p2 + p3 + p4 <= 1) {
 		lz = 1;
 		return;
 	}
+	QStringList strlist;
+	if(separator == 0) {
+		strlist << str.left(2);
+		strlist << str.mid(2, 2);
+		strlist << str.right(2);
+	} else {
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
-	QStringList strlist = str.split(separator, Qt::SkipEmptyParts);
+		strlist = str.split(separator, Qt::SkipEmptyParts);
 #else
-	QStringList strlist = str.split(separator, QString::SkipEmptyParts);
+		strlist = str.split(separator, QString::SkipEmptyParts);
 #endif
+	}
 	if(strlist.count() == 2 && (p1 || p2)) {
 		int i = strlist[1].indexOf('\'');
 		if(i >= 0) {
@@ -1284,6 +1293,7 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 	int failed = 0;
 	bool missing_columns = false, value_error = false, date_error = false;
 	bool AC1_empty = false, AC2_empty = false, AC1_missing = false, AC2_missing = false, AC_security = false, AC_balancing = false, AC_same = false;
+	bool AC1_category = (type == 0 || type == 1 || type == 3 || type == 4);
 	int AC1_c_bak = AC1_c;
 	int AC2_c_bak = AC2_c;
 	int row = 0;
@@ -1445,6 +1455,7 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 					value = -value;
 				}
 				if(success && AC1_c > 0) {
+					if(AC1_category && columns[AC1_c - 1].isEmpty()) columns[AC1_c - 1] = tr("Uncategorized");
 					QMap<QString, Account*>::iterator it_ac;
 					bool found = false;
 					if(type == 0 || ((type == 3 || type == 4) && value < 0.0)) {
@@ -1756,9 +1767,9 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 		if(missing_columns) {details += "\n-"; details += tr("Required columns missing.");}
 		if(value_error) {details += "\n-"; details += tr("Invalid value.");}
 		if(date_error) {details += "\n-"; details += tr("Invalid date.");}
-		if(AC1_empty) {details += "\n-"; if(type == 0 || type == 1 || type == 2) {details += tr("Empty category name.");} else {details += tr("Empty account name.");}}
+		if(AC1_empty) {details += "\n-"; if(AC1_category) {details += tr("Empty category name.");} else {details += tr("Empty account name.");}}
 		if(AC2_empty) {details += "\n-"; details += tr("Empty account name.");}
-		if(AC1_missing) {details += "\n-"; if(type == 0 || type == 1 || type == 2) {details += tr("Unknown category found.");} else {details += tr("Unknown account found.");}}
+		if(AC1_missing) {details += "\n-"; if(AC1_category) {details += tr("Unknown category found.");} else {details += tr("Unknown account found.");}}
 		if(AC2_missing) {details += "\n-"; details += tr("Unknown account found.");}
 		if(AC_security) {details += "\n-"; details += tr("Cannot import security transactions (to/from security accounts).");}
 		if(AC_balancing) {details += "\n-"; details += tr("Balancing account wrongly used.", "Referring to the account used for adjustments of account balances.");}
@@ -1843,7 +1854,9 @@ void ImportCSVDialog::accept() {
 			valueFormatCombo->addItem("1.000.000,00");
 			grid->addWidget(valueFormatCombo, ps > 1 ? 2 : 1, 1);
 		}
-		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
+		buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
+		buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 		buttonBox->button(QDialogButtonBox::Ok)->setShortcut(Qt::CTRL | Qt::Key_Return);
 		connect(buttonBox->button(QDialogButtonBox::Cancel), SIGNAL(clicked()), dialog, SLOT(reject()));
 		connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
