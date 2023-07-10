@@ -6316,7 +6316,7 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
         <location filename="../src/eqonomize.cpp" line="5576"/>
         <location filename="../src/eqonomize.cpp" line="7469"/>
         <location filename="../src/eqonomize.cpp" line="7847"/>
-        <location filename="../src/eqonomize.cpp" line="9407"/>
+        <location filename="../src/eqonomize.cpp" line="9412"/>
         <source>Tags</source>
         <translation type="unfinished">Etiquetas</translation>
     </message>
@@ -6804,38 +6804,38 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
         <translation type="unfinished">Criar link</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8024"/>
+        <location filename="../src/eqonomize.cpp" line="8026"/>
         <source>New Tag…</source>
         <translation type="unfinished">Nova etiqueta…</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8025"/>
+        <location filename="../src/eqonomize.cpp" line="8027"/>
         <source>Rename Tag…</source>
         <translation type="unfinished">Renomear etiqueta…</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8026"/>
+        <location filename="../src/eqonomize.cpp" line="8028"/>
         <source>Remove Tag</source>
         <translation type="unfinished">Remover etiqueta</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9426"/>
+        <location filename="../src/eqonomize.cpp" line="9431"/>
         <source>New Tag</source>
         <translation type="unfinished">Nova etiqueta</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9426"/>
-        <location filename="../src/eqonomize.cpp" line="9487"/>
+        <location filename="../src/eqonomize.cpp" line="9431"/>
+        <location filename="../src/eqonomize.cpp" line="9492"/>
         <source>Tag name:</source>
         <translation type="unfinished">Nome de etiqueta:</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9458"/>
+        <location filename="../src/eqonomize.cpp" line="9463"/>
         <source>Remove tag?</source>
         <translation type="unfinished">Remover etiqueta?</translation>
     </message>
     <message numerus="yes">
-        <location filename="../src/eqonomize.cpp" line="9458"/>
+        <location filename="../src/eqonomize.cpp" line="9463"/>
         <source>Do you wish to remove the tag &quot;%1&quot; from %n transaction(s)?</source>
         <translation type="unfinished">
             <numerusform></numerusform>
@@ -6843,7 +6843,7 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
         </translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9487"/>
+        <location filename="../src/eqonomize.cpp" line="9492"/>
         <source>Rename Tag</source>
         <translation type="unfinished">Renomear etiqueta</translation>
     </message>
@@ -7025,8 +7025,8 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
     </message>
     <message>
         <location filename="../src/eqonomize.cpp" line="7810"/>
-        <location filename="../src/eqonomize.cpp" line="9385"/>
-        <location filename="../src/eqonomize.cpp" line="11050"/>
+        <location filename="../src/eqonomize.cpp" line="9390"/>
+        <location filename="../src/eqonomize.cpp" line="11055"/>
         <source>Close Account</source>
         <comment>Mark account as closed</comment>
         <translation type="unfinished">Fechar conta</translation>
@@ -7067,18 +7067,18 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
         <translation type="unfinished">Predefinida</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8112"/>
+        <location filename="../src/eqonomize.cpp" line="8114"/>
         <source>Restart required</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8898"/>
+        <location filename="../src/eqonomize.cpp" line="8903"/>
         <source>Only use this when unable to find the cause of the incorrect recorded account balance.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9382"/>
-        <location filename="../src/eqonomize.cpp" line="11046"/>
+        <location filename="../src/eqonomize.cpp" line="9387"/>
+        <location filename="../src/eqonomize.cpp" line="11051"/>
         <source>Reopen Account</source>
         <comment>Mark account as not closed</comment>
         <translation type="unfinished"></translation>
@@ -7100,7 +7100,7 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8877"/>
+        <location filename="../src/eqonomize.cpp" line="8882"/>
         <source>Adjust Account Balance</source>
         <translation type="unfinished">Ajustar o saldo da conta</translation>
     </message>
@@ -7167,7 +7167,7 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
         <location filename="../src/eqonomize.cpp" line="7650"/>
         <location filename="../src/eqonomize.cpp" line="7678"/>
         <location filename="../src/eqonomize.cpp" line="7685"/>
-        <location filename="../src/eqonomize.cpp" line="8212"/>
+        <location filename="../src/eqonomize.cpp" line="8214"/>
         <source>Error</source>
         <translation type="unfinished">Erro</translation>
     </message>
@@ -7296,14 +7296,14 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
     <message>
         <location filename="../src/eqonomize.cpp" line="6190"/>
         <location filename="../src/eqonomize.cpp" line="6407"/>
-        <location filename="../src/eqonomize.cpp" line="8206"/>
+        <location filename="../src/eqonomize.cpp" line="8208"/>
         <source>Couldn&apos;t open file</source>
         <translation type="unfinished">Impossível abrir o ficheiro</translation>
     </message>
     <message>
         <location filename="../src/eqonomize.cpp" line="6190"/>
         <location filename="../src/eqonomize.cpp" line="6407"/>
-        <location filename="../src/eqonomize.cpp" line="8206"/>
+        <location filename="../src/eqonomize.cpp" line="8208"/>
         <source>Error loading %1: %2.</source>
         <translation type="unfinished">Erro ao carregar %1: %2.</translation>
     </message>
@@ -7980,44 +7980,44 @@ Confirme se elas ocorreram (ou se irão ocorrer hoje).</translation>
         <translation type="unfinished">Tema escuro</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8015"/>
-        <location filename="../src/eqonomize.cpp" line="8146"/>
+        <location filename="../src/eqonomize.cpp" line="8017"/>
+        <location filename="../src/eqonomize.cpp" line="8148"/>
         <source>Help</source>
         <translation type="unfinished">Ajuda</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8018"/>
+        <location filename="../src/eqonomize.cpp" line="8020"/>
         <source>Report Bug</source>
         <translation type="unfinished">Reportar bug</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8020"/>
-        <location filename="../src/eqonomize.cpp" line="8184"/>
+        <location filename="../src/eqonomize.cpp" line="8022"/>
+        <location filename="../src/eqonomize.cpp" line="8186"/>
         <source>About %1</source>
         <translation type="unfinished">Sobre %1</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8022"/>
+        <location filename="../src/eqonomize.cpp" line="8024"/>
         <source>About Qt</source>
         <translation type="unfinished">Sobre Qt</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8112"/>
+        <location filename="../src/eqonomize.cpp" line="8114"/>
         <source>Please restart the application for the language change to take effect.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8184"/>
+        <location filename="../src/eqonomize.cpp" line="8186"/>
         <source>A personal accounting program</source>
         <translation type="unfinished">Um programa de finanças pessoais</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8201"/>
+        <location filename="../src/eqonomize.cpp" line="8203"/>
         <source>Crash Recovery</source>
         <translation type="unfinished">Recuperação de erro</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8201"/>
+        <location filename="../src/eqonomize.cpp" line="8203"/>
         <source>%1 exited unexpectedly before the file was saved and data was lost.
 Do you want to load the last auto-saved version of the file?</source>
         <translation type="unfinished">%1 foi fechado inesperadamente antes do ficheiro ter sido guardado e perderam-se dados.
@@ -8026,7 +8026,7 @@ Deseja abrir a última versão guardada automaticamente do ficheiro?</translatio
     <message>
         <location filename="../src/eqonomize.cpp" line="2461"/>
         <location filename="../src/eqonomize.cpp" line="6024"/>
-        <location filename="../src/eqonomize.cpp" line="8434"/>
+        <location filename="../src/eqonomize.cpp" line="8439"/>
         <source>Untitled</source>
         <translation type="unfinished">Sem título</translation>
     </message>
@@ -8167,48 +8167,48 @@ Deseja abrir a última versão guardada automaticamente do ficheiro?</translatio
         <translation type="obsolete">Editar cotações…</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8184"/>
+        <location filename="../src/eqonomize.cpp" line="8186"/>
         <source>License: GNU General Public License Version 3</source>
         <translation type="unfinished">Licença: GNU General Public License Version 3</translation>
     </message>
     <message>
         <location filename="../src/eqonomize.cpp" line="6516"/>
-        <location filename="../src/eqonomize.cpp" line="8465"/>
+        <location filename="../src/eqonomize.cpp" line="8470"/>
         <source>Eqonomize! Accounting File</source>
         <translation type="unfinished">Ficheiro da conta Eqonomize!</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8524"/>
+        <location filename="../src/eqonomize.cpp" line="8529"/>
         <source>Save file?</source>
         <translation type="unfinished">Guardar ficheiro?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8524"/>
+        <location filename="../src/eqonomize.cpp" line="8529"/>
         <source>The current file has been modified. Do you want to save it?</source>
         <translation type="unfinished">O ficheiro atual foi modificado. Quer gravá-lo?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8567"/>
+        <location filename="../src/eqonomize.cpp" line="8572"/>
         <source>Confirm Schedule</source>
         <translation type="unfinished">Confirmar agendamento</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8692"/>
+        <location filename="../src/eqonomize.cpp" line="8697"/>
         <source>New Account</source>
         <translation type="unfinished">Nova conta</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8719"/>
+        <location filename="../src/eqonomize.cpp" line="8724"/>
         <source>New Loan</source>
         <translation type="unfinished">Novo empréstimo</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8756"/>
+        <location filename="../src/eqonomize.cpp" line="8761"/>
         <source>New Income Category</source>
         <translation type="unfinished">Nova categoria de receitas</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8774"/>
+        <location filename="../src/eqonomize.cpp" line="8779"/>
         <source>New Expense Category</source>
         <translation type="unfinished">Nova categoria de despesas</translation>
     </message>
@@ -8217,115 +8217,115 @@ Deseja abrir a última versão guardada automaticamente do ficheiro?</translatio
         <translation type="obsolete">Conta balanço</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8884"/>
+        <location filename="../src/eqonomize.cpp" line="8889"/>
         <source>Book value:</source>
         <translation type="unfinished">Valor contabilístico:</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8888"/>
+        <location filename="../src/eqonomize.cpp" line="8893"/>
         <source>of which %1 is balance adjustment</source>
         <comment>Referring to account balance</comment>
         <translation type="unfinished">do qual %1 é um ajuste do saldo</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8891"/>
+        <location filename="../src/eqonomize.cpp" line="8896"/>
         <source>Real value:</source>
         <translation type="unfinished">Valor real:</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8954"/>
+        <location filename="../src/eqonomize.cpp" line="8959"/>
         <source>Edit Account</source>
         <translation type="unfinished">Editar conta</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9047"/>
+        <location filename="../src/eqonomize.cpp" line="9052"/>
         <source>Edit Income Category</source>
         <translation type="unfinished">Editar categoria de receitas</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9086"/>
+        <location filename="../src/eqonomize.cpp" line="9091"/>
         <source>Edit Expense Category</source>
         <translation type="unfinished">Editar categoria de despesas</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9198"/>
+        <location filename="../src/eqonomize.cpp" line="9203"/>
         <source>Remove subcategories?</source>
         <translation type="unfinished">Remover subcategorias?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9198"/>
+        <location filename="../src/eqonomize.cpp" line="9203"/>
         <source>Do you wish to remove the category including all subcategories?</source>
         <translation type="unfinished">Deseja remover a categoria, incluindo todas as subcategorias?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9247"/>
+        <location filename="../src/eqonomize.cpp" line="9252"/>
         <source>Move transactions?</source>
         <translation type="unfinished">Mover transações?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9255"/>
+        <location filename="../src/eqonomize.cpp" line="9260"/>
         <source>Move to:</source>
         <translation type="unfinished">Mover para:</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9257"/>
+        <location filename="../src/eqonomize.cpp" line="9262"/>
         <source>Remove irreversibly from all accounts
 (do not do this if account has been closed!)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9264"/>
+        <location filename="../src/eqonomize.cpp" line="9269"/>
         <source>The category contains some expenses.
 What do you want to do with them?</source>
         <translation type="unfinished">A categoria contém algumas despesas.
 O que lhes deseja fazer?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9275"/>
+        <location filename="../src/eqonomize.cpp" line="9280"/>
         <source>The category contains some incomes.
 What do you want to do with them?</source>
         <translation type="unfinished">A categoria contém algumas receitas.
 O que lhes deseja fazer?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9286"/>
+        <location filename="../src/eqonomize.cpp" line="9291"/>
         <source>The account contains some transactions.
 What do you want to do with them?</source>
         <translation type="unfinished">A conta contém algumas transações.
 O que lhes deseja fazer?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9316"/>
-        <location filename="../src/eqonomize.cpp" line="9317"/>
+        <location filename="../src/eqonomize.cpp" line="9321"/>
+        <location filename="../src/eqonomize.cpp" line="9322"/>
         <source>Remove Category?</source>
         <translation type="unfinished">Remover categoria?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9316"/>
+        <location filename="../src/eqonomize.cpp" line="9321"/>
         <source>The category contains some expenses that will be removed. Do you still want to remove the category?</source>
         <translation type="unfinished">A categoria contém algumas despesas que serão removidas. Quer remover a categoria, mesmo assim?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9317"/>
+        <location filename="../src/eqonomize.cpp" line="9322"/>
         <source>The category contains some incomes that will be removed. Do you still want to remove the category?</source>
         <translation type="unfinished">A categoria contém algumas receitas que serão removidas. Quer remover a categoria, mesmo assim?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9318"/>
+        <location filename="../src/eqonomize.cpp" line="9323"/>
         <source>Remove Account?</source>
         <translation type="unfinished">Remover conta?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="9318"/>
+        <location filename="../src/eqonomize.cpp" line="9323"/>
         <source>The account contains some transactions that will be removed. Do you still want to remove the account?</source>
         <translation type="unfinished">A conta contém algumas transações que serão removidas. Quer remover a conta, mesmo assim?</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="8352"/>
-        <location filename="../src/eqonomize.cpp" line="10545"/>
-        <location filename="../src/eqonomize.cpp" line="10570"/>
-        <location filename="../src/eqonomize.cpp" line="10900"/>
-        <location filename="../src/eqonomize.cpp" line="10901"/>
+        <location filename="../src/eqonomize.cpp" line="8354"/>
+        <location filename="../src/eqonomize.cpp" line="10550"/>
+        <location filename="../src/eqonomize.cpp" line="10575"/>
+        <location filename="../src/eqonomize.cpp" line="10905"/>
+        <location filename="../src/eqonomize.cpp" line="10906"/>
         <source>%2 of %1</source>
         <comment>%1: budget; %2: remaining budget</comment>
         <translation type="unfinished">%2 de %1</translation>
@@ -8353,14 +8353,14 @@ O que lhes deseja fazer?</translation>
         <translation type="obsolete">Conta balanço</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11006"/>
-        <location filename="../src/eqonomize.cpp" line="11030"/>
+        <location filename="../src/eqonomize.cpp" line="11011"/>
+        <location filename="../src/eqonomize.cpp" line="11035"/>
         <source>%1 (with no budget)</source>
         <translation type="unfinished">%1 (não orçamentada)</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11007"/>
-        <location filename="../src/eqonomize.cpp" line="11031"/>
+        <location filename="../src/eqonomize.cpp" line="11012"/>
+        <location filename="../src/eqonomize.cpp" line="11036"/>
         <source>%1 (with budget %2)</source>
         <translation type="unfinished">%1 (com orçamento %2)</translation>
     </message>
@@ -8384,19 +8384,19 @@ O que lhes deseja fazer?</translation>
 <context>
     <name>EqonomizeTranslator</name>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11392"/>
+        <location filename="../src/eqonomize.cpp" line="11397"/>
         <source>OK</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11394"/>
+        <location filename="../src/eqonomize.cpp" line="11399"/>
         <source>Cancel</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished">Cancelar</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11396"/>
+        <location filename="../src/eqonomize.cpp" line="11401"/>
         <source>Close</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished">Fechar</translation>
@@ -8412,49 +8412,49 @@ O que lhes deseja fazer?</translation>
         <translation type="obsolete">Não</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11398"/>
+        <location filename="../src/eqonomize.cpp" line="11403"/>
         <source>&amp;Yes</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished">&amp;Sim</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11400"/>
+        <location filename="../src/eqonomize.cpp" line="11405"/>
         <source>&amp;No</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished">&amp;Não</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11402"/>
+        <location filename="../src/eqonomize.cpp" line="11407"/>
         <source>&amp;Open</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11404"/>
+        <location filename="../src/eqonomize.cpp" line="11409"/>
         <source>&amp;Save</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished">&amp;Gravar</translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11406"/>
+        <location filename="../src/eqonomize.cpp" line="11411"/>
         <source>&amp;Select All</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11408"/>
+        <location filename="../src/eqonomize.cpp" line="11413"/>
         <source>Look in:</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11410"/>
+        <location filename="../src/eqonomize.cpp" line="11415"/>
         <source>File &amp;name:</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../src/eqonomize.cpp" line="11412"/>
+        <location filename="../src/eqonomize.cpp" line="11417"/>
         <source>Files of type:</source>
         <extracomment>Only used when Qt translation is missing</extracomment>
         <translation type="unfinished"></translation>
