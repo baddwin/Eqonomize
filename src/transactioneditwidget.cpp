@@ -446,7 +446,7 @@ QSize CommentsTextEdit::sizeHint() const {
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 5, 0))
 	size.setHeight(fm.lineSpacing() * 2 + frameWidth() * 2 + contentsMargins().top() + contentsMargins().bottom() + document()->documentMargin() * 2 + viewportMargins().bottom() + viewportMargins().top());
 #else
-	size.setHeight(fm.lineSpacing() * 2 + frameWidth() * 2 + contentsMargins().top() + contentsMargins().bottom() + document()->documentMargin());
+	size.setHeight(fm.lineSpacing() * 2 + frameWidth() * 2 + contentsMargins().top() + contentsMargins().bottom() + document()->documentMargin() * 2);
 #endif
 	return size;
 }
@@ -1406,6 +1406,10 @@ double TransactionEditWidget::quantity() const {
 	if(!quantityEdit) return 1.0;
 	return quantityEdit->value();
 }
+double TransactionEditWidget::quote() const {
+	if(!quotationEdit) return 0.0;
+	return quotationEdit->value();
+}
 Account *TransactionEditWidget::fromAccount() const {
 	if(!fromCombo) return NULL;
 	return fromCombo->currentAccount();
@@ -1758,6 +1762,10 @@ Security *TransactionEditWidget::selectedSecurity() {
 		return (Security*) securityCombo->currentData().value<void*>();
 	}
 	return security;
+}
+bool TransactionEditWidget::setQuoteChecked() const {
+	if(setQuoteButton) return setQuoteButton->isChecked();
+	return false;
 }
 Transactions *TransactionEditWidget::createTransactionWithLoan() {
 

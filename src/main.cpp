@@ -48,10 +48,28 @@ QTranslator translator, translator_qt, translator_qtbase;
 int main(int argc, char **argv) {
 
 	QApplication app(argc, argv);
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+	app.setStyle("Fusion");
+#endif
 	app.setApplicationName("eqonomize");
 	app.setApplicationDisplayName("Eqonomize!");
 	app.setOrganizationName("Eqonomize");
 	app.setApplicationVersion(VERSION);
+
+	QSettings settings;
+	settings.beginGroup("GeneralOptions");
+
+	QString sfont = settings.value("font").toString();
+	QFont font;
+	if(!sfont.isEmpty()) {
+		font.fromString(sfont);
+		app.processEvents();
+		if(font.family() == app.font().family() && font.pointSize() == app.font().pointSize() && font.pixelSize() == app.font().pixelSize() && font.overline() == app.font().overline() && font.stretch() == app.font().stretch() && font.letterSpacing() == app.font().letterSpacing() && font.underline() == app.font().underline() && font.style() == app.font().style() && font.weight() == app.font().weight()) {
+			settings.remove("font");
+		} else {
+			app.setFont(font);
+		}
+	}
 
 	QString locale = setlocale(LC_MONETARY, NULL);
 	if(locale == QLocale::c().name()) {
@@ -60,22 +78,30 @@ int main(int argc, char **argv) {
 		setlocale(LC_MONETARY, "");
 	}
 
-	QSettings settings;
-	settings.beginGroup("GeneralOptions");
 	QString slang = settings.value("language", QString()).toString();
 
 	EqonomizeTranslator eqtr;
 	app.installTranslator(&eqtr);
+
     if(!slang.isEmpty()) {
 		if(translator.load(QLatin1String("eqonomize") + QLatin1String("_") + slang, QLatin1String(TRANSLATIONS_DIR))) app.installTranslator(&translator);
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+		if(translator_qt.load("qt_" + slang, QLibraryInfo::path(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qt);
+		if(translator_qtbase.load("qtbase_" + slang, QLibraryInfo::path(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qtbase);
+#else
 		if(translator_qt.load("qt_" + slang, QLibraryInfo::location(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qt);
 		if(translator_qtbase.load("qtbase_" + slang, QLibraryInfo::location(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qtbase);
+#endif
 	} else {
 		if(translator.load(QLocale(), QLatin1String("eqonomize"), QLatin1String("_"), QLatin1String(TRANSLATIONS_DIR))) app.installTranslator(&translator);
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+		if(translator_qt.load(QLocale(), QLatin1String("qt"), QLatin1String("_"), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qt);
+		if(translator_qtbase.load(QLocale(), QLatin1String("qtbase"), QLatin1String("_"), QLibraryInfo::path(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qtbase);
+#else
 		if(translator_qt.load(QLocale(), QLatin1String("qt"), QLatin1String("_"), QLibraryInfo::location(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qt);
 		if(translator_qtbase.load(QLocale(), QLatin1String("qtbase"), QLatin1String("_"), QLibraryInfo::location(QLibraryInfo::TranslationsPath))) app.installTranslator(&translator_qtbase);
+#endif
 	}
-
 
 	QCommandLineParser *parser = new QCommandLineParser();
 	QCommandLineOption eOption(QStringList() << "e" << "expenses", QApplication::tr("Start with expenses list displayed"));
@@ -186,10 +212,21 @@ int main(int argc, char **argv) {
 			win->createDefaultBudget();
 		}
 	}
-#ifdef RESOURCES_COMPILED
+
 	settings.beginGroup("GeneralOptions");
+#ifdef RESOURCES_COMPILED
 	if(!settings.value("lastVersionCheck").toDate().isValid() || settings.value("lastVersionCheck").toDate().addDays(10) <= QDate::currentDate()) win->checkAvailableVersion();
 #endif
+
+	//fixes font with gtk2 style
+	sfont = settings.value("font").toString();
+	if(!sfont.isEmpty()) {
+		QFont font;
+		font.fromString(sfont);
+		app.setFont(font);
+		win->updateAccountColumnWidths();
+	}
+	settings.endGroup();
 
 	args.clear();
 

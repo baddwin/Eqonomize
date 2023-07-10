@@ -155,24 +155,15 @@ TransactionListWidget::TransactionListWidget(bool extra_parameters, int transact
 	transactionsView->setColumnCount(comments_col + 2);
 	transactionsView->setHeaderLabels(headers);
 	transactionsView->setColumnHidden(transactionsView->columnCount() - 1, true);
-	setColumnDateWidth(transactionsView, 0);
-	setColumnStrlenWidth(transactionsView, 1, 25);
-	setColumnMoneyWidth(transactionsView, 2, budget);
-	setColumnStrlenWidth(transactionsView, from_col, 20);
-	setColumnStrlenWidth(transactionsView, to_col, 20);
-	if(payee_col >= 0) {
-		setColumnStrlenWidth(transactionsView, payee_col, 15);
-		transactionsView->setColumnHidden(payee_col, !b_extra);
-	}
-	if(tags_col >= 0) {
-		setColumnStrlenWidth(transactionsView, tags_col, 15);
-		transactionsView->setColumnHidden(tags_col, true);
-	}
+	updateColumnWidths();
+	if(payee_col >= 0) transactionsView->setColumnHidden(payee_col, !b_extra);
+	if(tags_col >= 0) transactionsView->setColumnHidden(tags_col, true);
 	if(quantity_col >= 0) transactionsView->setColumnHidden(quantity_col, true);
 	transactionsView->setRootIsDecorated(false);
 	transactionsView->setSelectionMode(QAbstractItemView::ExtendedSelection);
 	transactionsViewLayout->addWidget(transactionsView);
 	statLabel = new QLabel(this);
+	statLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 	transactionsViewLayout->addWidget(statLabel);
 	QSizePolicy sp = transactionsView->sizePolicy();
 	sp.setVerticalPolicy(QSizePolicy::MinimumExpanding);
@@ -239,6 +230,44 @@ TransactionListWidget::TransactionListWidget(bool extra_parameters, int transact
 QSize TransactionListWidget::minimumSizeHint() const {return QWidget::minimumSizeHint();}
 QSize TransactionListWidget::sizeHint() const {return minimumSizeHint();}
 
+void TransactionListWidget::updateColumnWidths() {
+	comments_col = 5;
+	tags_col = -1;
+	payee_col = -1;
+	quantity_col = -1;
+	switch(transtype) {
+		case TRANSACTION_TYPE_EXPENSE: {
+			quantity_col = 6;
+			payee_col = 5;
+			comments_col = 8;
+			tags_col = 7;
+			from_col = 4; to_col = 3;
+			break;
+		}
+		case TRANSACTION_TYPE_INCOME: {
+			payee_col = 5;
+			comments_col = 7;
+			tags_col = 6;
+			from_col = 3; to_col = 4;
+			break;
+		}
+		default: {
+			from_col = 3; to_col = 4;
+			break;
+		}
+	}
+	setColumnDateWidth(transactionsView, 0);
+	setColumnStrlenWidth(transactionsView, 1, 25);
+	setColumnMoneyWidth(transactionsView, 2, budget);
+	setColumnStrlenWidth(transactionsView, from_col, 20);
+	setColumnStrlenWidth(transactionsView, to_col, 20);
+	if(payee_col >= 0) {
+		setColumnStrlenWidth(transactionsView, payee_col, 15);
+	}
+	if(tags_col >= 0) {
+		setColumnStrlenWidth(transactionsView, tags_col, 15);
+	}
+}
 QByteArray TransactionListWidget::saveState() {
 	return transactionsView->header()->saveState();
 }
@@ -339,7 +368,11 @@ void TransactionListWidget::keyPressEvent(QKeyEvent *e) {
 	if(e == key_event) return;
 	QWidget::keyPressEvent(e);
 	if(!e->isAccepted() && editWidget->firstHasFocus() && e->key() != Qt::Key_Enter && e->key() != Qt::Key_Return) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+		key_event = new QKeyEvent(e->type(), e->key(), e->modifiers(), e->nativeScanCode(), e->nativeVirtualKey(), e->nativeModifiers(), e->text(), e->isAutoRepeat(), e->count());
+#else
 		key_event = new QKeyEvent(*e);
+#endif
 		QApplication::sendEvent(transactionsView, key_event);
 		delete key_event;
 	}
@@ -430,7 +463,7 @@ void TransactionListWidget::popupHeaderMenu(const QPoint &p) {
 		ActionSortByCreationTime->setCheckable(true);
 		connect(ActionSortByCreationTime, SIGNAL(toggled(bool)), this, SLOT(sortByCreationTime(bool)));
 		SeparatorRightAlignValues = headerPopupMenu->addSeparator();
-		ActionRightAlignValues = headerPopupMenu->addAction(tr("Align right"));
+		ActionRightAlignValues = headerPopupMenu->addAction(tr("Right align"));
 		ActionRightAlignValues->setCheckable(true);
 		connect(ActionRightAlignValues, SIGNAL(toggled(bool)), this, SLOT(rightAlignValues(bool)));
 	}
@@ -466,7 +499,9 @@ bool TransactionListWidget::exportList(QTextStream &outf, int fileformat) {
 
 	switch(fileformat) {
 		case 'h': {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 			outf.setCodec("UTF-8");
+#endif
 			outf << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << '\n';
 			outf << "<html>" << '\n';
 			outf << "\t<head>" << '\n';
@@ -1163,6 +1198,8 @@ void TransactionListWidget::modifyTransaction() {
 		return;
 	}
 	if(!editWidget->validValues(true)) return;
+	ScheduledTransaction *curstranscopy = i->scheduledTransaction();
+	QDate curdate_copy = i->date();
 	if(i->scheduledTransaction()) {
 		if(i->scheduledTransaction()->isOneTimeTransaction()) {
 			Transaction *trans = (Transaction*) i->scheduledTransaction()->transaction()->copy();
@@ -1191,27 +1228,22 @@ void TransactionListWidget::modifyTransaction() {
 				++it;
 				i = (TransactionListViewItem*) *it;
 			}
-		} else {
-			if(editWidget->validValues()) {
-				ScheduledTransaction *curstranscopy = i->scheduledTransaction();
-				QDate curdate_copy = i->date();
-				ScheduledTransaction *oldstrans = curstranscopy->copy();
-				curstranscopy->addException(curdate_copy);
-				mainWin->transactionModified(curstranscopy, oldstrans);
-				delete oldstrans;
-			}
+			clearTransaction();
+			return;
 		}
-	} else if(editWidget->date() > QDate::currentDate()) {
+	}
+	if(editWidget->date() > QDate::currentDate() || curstranscopy) {
 		Transaction *newtrans = i->transaction()->copy();
 		if(editWidget->modifyTransaction(newtrans)) {
-			ScheduledTransaction *strans = new ScheduledTransaction(budget, newtrans, NULL);
+			Transactions *trans = newtrans;
+			if(editWidget->date() > QDate::currentDate()) trans = new ScheduledTransaction(budget, newtrans, NULL);
 			removeTransaction();
-			budget->addScheduledTransaction(strans);
-			mainWin->transactionAdded(strans);
+			budget->addTransactions(trans);
+			mainWin->transactionAdded(trans);
 			QTreeWidgetItemIterator it(transactionsView);
 			TransactionListViewItem *i = (TransactionListViewItem*) *it;
 			while(i) {
-				if(i->scheduledTransaction() == strans) {
+				if(i->scheduledTransaction() == trans || i->transaction() == trans) {
 					transactionsView->setCurrentItem(i);
 					i->setSelected(true);
 					break;
@@ -1229,6 +1261,12 @@ void TransactionListWidget::modifyTransaction() {
 		}
 		delete oldtrans;
 		transactionsView->scrollToItem(i);
+	}
+	if(curstranscopy) {
+		ScheduledTransaction *oldstrans = curstranscopy->copy();
+		curstranscopy->addException(curdate_copy);
+		mainWin->transactionModified(curstranscopy, oldstrans);
+		delete oldstrans;
 	}
 	clearTransaction();
 }
@@ -1950,6 +1988,9 @@ void TransactionListWidget::clearTransaction() {
 	editWidget->setTransaction(NULL);
 }
 void TransactionListWidget::filterTransactions() {
+	expenseColor = QColor();
+	incomeColor = QColor();
+	transferColor = QColor();
 	//QList<QTreeWidgetItem*> selection = transactionsView->selectedItems();
 	selected_trans = NULL;
 	/*if(selection.count() == 1) {

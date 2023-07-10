@@ -90,12 +90,16 @@ void Security::mergeQuotes(const Security *security, bool keep) {
 
 void Security::readAttributes(QXmlStreamAttributes *attr, bool *valid) {
 	read_id(attr, i_id, i_first_revision, i_last_revision);
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+	QStringView type = attr->value("type");
+#else
 	QStringRef type = attr->value("type");
-	if(type == "bond") {
+#endif
+	if(type == XML_COMPARE_CONST_CHAR("bond")) {
 		st_type = SECURITY_TYPE_BOND;
-	} else if(type == "stock") {
+	} else if(type == XML_COMPARE_CONST_CHAR("stock")) {
 		st_type = SECURITY_TYPE_STOCK;
-	} else if(type == "mutual fund") {
+	} else if(type == XML_COMPARE_CONST_CHAR("mutual fund")) {
 		st_type = SECURITY_TYPE_MUTUAL_FUND;
 	} else {
 		st_type = SECURITY_TYPE_OTHER;
@@ -117,11 +121,13 @@ void Security::readAttributes(QXmlStreamAttributes *attr, bool *valid) {
 	}
 }
 bool Security::readElement(QXmlStreamReader *xml, bool*) {
-	if(xml->name() == "quotation") {
+	if(xml->name() == XML_COMPARE_CONST_CHAR("quotation")) {
 		QXmlStreamAttributes attr = xml->attributes();
 		QDate date = QDate::fromString(attr.value("date").toString(), Qt::ISODate);
-		quotations[date] = attr.value("value").toDouble();
-		quotations_auto[date] = attr.value("auto").toInt();
+		if(date.isValid()) {
+			quotations[date] = attr.value("value").toDouble();
+			quotations_auto[date] = attr.value("auto").toInt();
+		}
 	}
 	return false;
 }
@@ -191,6 +197,7 @@ void Security::setFirstRevision(int new_rev) {i_first_revision = new_rev; if(i_f
 int Security::lastRevision() const {return i_last_revision;}
 void Security::setLastRevision(int new_rev) {i_last_revision = new_rev;}
 void Security::setQuotation(const QDate &date, double value, bool auto_added) {
+	if(!date.isValid()) return;
 	if(!auto_added) {
 		quotations[date] = value;
 		quotations_auto[date] = false;

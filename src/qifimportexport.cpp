@@ -49,6 +49,7 @@
 #include <QFileSystemModel>
 #include <QHash>
 #include <QMimeDatabase>
+#include <QSettings>
 
 #include "eqonomize.h"
 #include "qifimportexport.h"
@@ -67,6 +68,9 @@
 extern QString last_document_directory;
 
 ImportQIFDialog::ImportQIFDialog(Budget *budg, QWidget *parent, bool extra_parameters) : QWizard(parent), budget(budg), b_extra(extra_parameters) {
+
+	QSettings settings;
+	if(settings.value("GeneralOptions/darkMode", false).toBool()) setWizardStyle(QWizard::ClassicStyle);
 
 	setWindowTitle(tr("Import QIF file"));
 	setModal(true);
@@ -505,7 +509,7 @@ ExportQIFDialog::ExportQIFDialog(Budget *budg, QWidget *parent, bool extra_param
 	layouth->addWidget(fileButton);
 	grid->addLayout(layouth, 3, 1);
 
-	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
+	buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, this);
 	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
 	buttonBox->button(QDialogButtonBox::Cancel)->setAutoDefault(false);
 	buttonBox->button(QDialogButtonBox::Cancel)->setShortcut(Qt::CTRL | Qt::Key_Return);

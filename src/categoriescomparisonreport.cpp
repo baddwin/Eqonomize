@@ -235,7 +235,11 @@ CategoriesComparisonReport::CategoriesComparisonReport(Budget *budg, QWidget *pa
 
 	resetOptions();
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+	connect(group, SIGNAL(idToggled(int, bool)), this, SLOT(columnsToggled(int, bool)));
+#else
 	connect(group, SIGNAL(buttonToggled(int, bool)), this, SLOT(columnsToggled(int, bool)));
+#endif
 	connect(subsButton, SIGNAL(toggled(bool)), this, SLOT(subsToggled(bool)));
 	connect(descriptionButton, SIGNAL(toggled(bool)), this, SLOT(descriptionToggled(bool)));
 	if(b_extra) {
@@ -598,7 +602,9 @@ void CategoriesComparisonReport::save() {
 	}
 	last_document_directory = fileDialog.directory().absolutePath();
 	QTextStream outf(&ofile);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 	outf.setCodec("UTF-8");
+#endif
 	outf << source;
 	if(!ofile.commit()) {
 		QMessageBox::critical(this, tr("Error"), tr("Error while writing file; file was not saved."));
@@ -765,20 +771,18 @@ void CategoriesComparisonReport::updateDisplay() {
 
 	AccountType type = ACCOUNT_TYPE_EXPENSES;
 	if(current_account) type = current_account->type();
-	switch(i_source) {
-		case -2: {
-			for(int i = 0; i < budget->tags.count(); i++) {
-				desc_values[budget->tags[i]] = 0.0;
-				desc_counts[budget->tags[i]] = 0.0;
-				desc_map[budget->tags[i]] = budget->tags[i];
-				if(i_months > 0) desc_month_values[budget->tags[i]].fill(0.0, i_months);
-				if(b_tags) {
-					for(int i2 = 0; i2 < budget->tags.count(); i2++) desc_tag_values[budget->tags[i]][budget->tags[i2]] = 0.0;
-				}
+	if(i_source == -2) {
+		for(int i = 0; i < budget->tags.count(); i++) {
+			desc_values[budget->tags[i]] = 0.0;
+			desc_counts[budget->tags[i]] = 0.0;
+			desc_map[budget->tags[i]] = budget->tags[i];
+			if(i_months > 0) desc_month_values[budget->tags[i]].fill(0.0, i_months);
+			if(b_tags) {
+				for(int i2 = 0; i2 < budget->tags.count(); i2++) desc_tag_values[budget->tags[i]][budget->tags[i2]] = 0.0;
 			}
-			break;
 		}
-		case -1: {
+	} else if(i_source == -1 || i_source == 0) {
+		if(i_source == -1) {
 			for(TransactionList<Transaction*>::const_iterator it = budget->transactions.constEnd(); it != budget->transactions.constBegin();) {
 				--it;
 				Transaction *trans = *it;
@@ -848,81 +852,68 @@ void CategoriesComparisonReport::updateDisplay() {
 				}
 			}
 		}
-		case 0: {
-			for(AccountList<ExpensesAccount*>::const_iterator it = budget->expensesAccounts.constBegin(); it != budget->expensesAccounts.constEnd(); ++it) {
-				CategoryAccount *account = *it;
-				if(include_subs || !account->parentCategory()) {
-					values[account] = 0.0;
-					counts[account] = 0.0;
-					if(i_months > 0) month_values[account].fill(0.0, i_months);
-					if(b_tags) {
-						for(int i = 0; i < budget->tags.count(); i++) tag_values[account][budget->tags[i]] = 0.0;
-					}
-				}
-			}
-			for(AccountList<IncomesAccount*>::const_iterator it = budget->incomesAccounts.constBegin(); it != budget->incomesAccounts.constEnd(); ++it) {
-				CategoryAccount *account = *it;
-				if(include_subs || !account->parentCategory()) {
-					values[account] = 0.0;
-					counts[account] = 0.0;
-					if(i_months > 0) month_values[account].fill(0.0, i_months);
-					if(b_tags) {
-						for(int i = 0; i < budget->tags.count(); i++) tag_values[account][budget->tags[i]] = 0.0;
-					}
-				}
-			}
-			if(i_months > 0) month_values[budget->null_incomes_account].fill(0.0, i_months);
-			if(b_tags) {
-				for(int i = 0; i < budget->tags.count(); i++) tag_values[budget->null_incomes_account][budget->tags[i]] = 0.0;
-			}
-			break;
-		}
-		default: {
-			if(include_subs) {
-				values[current_account] = 0.0;
-				counts[current_account] = 0.0;
-				if(i_months > 0) month_values[current_account].fill(0.0, i_months);
+		for(AccountList<ExpensesAccount*>::const_iterator it = budget->expensesAccounts.constBegin(); it != budget->expensesAccounts.constEnd(); ++it) {
+			CategoryAccount *account = *it;
+			if(include_subs || !account->parentCategory()) {
+				values[account] = 0.0;
+				counts[account] = 0.0;
+				if(i_months > 0) month_values[account].fill(0.0, i_months);
 				if(b_tags) {
-					for(int i = 0; i < budget->tags.count(); i++) tag_values[current_account][budget->tags[i]] = 0.0;
+					for(int i = 0; i < budget->tags.count(); i++) tag_values[account][budget->tags[i]] = 0.0;
 				}
-				for(AccountList<CategoryAccount*>::const_iterator it = current_account->subCategories.constBegin(); it != current_account->subCategories.constEnd(); ++it) {
-					CategoryAccount *account = *it;
-					values[account] = 0.0;
-					counts[account] = 0.0;
-					if(i_months > 0) month_values[account].fill(0.0, i_months);
-					if(b_tags) {
-						for(int i = 0; i < budget->tags.count(); i++) tag_values[account][budget->tags[i]] = 0.0;					}
+			}
+		}
+		for(AccountList<IncomesAccount*>::const_iterator it = budget->incomesAccounts.constBegin(); it != budget->incomesAccounts.constEnd(); ++it) {
+			CategoryAccount *account = *it;
+			if(include_subs || !account->parentCategory()) {
+				values[account] = 0.0;
+				counts[account] = 0.0;
+				if(i_months > 0) month_values[account].fill(0.0, i_months);
+				if(b_tags) {
+					for(int i = 0; i < budget->tags.count(); i++) tag_values[account][budget->tags[i]] = 0.0;
 				}
-			} else {
-				for(TransactionList<Transaction*>::const_iterator it = budget->transactions.constEnd(); it != budget->transactions.constBegin();) {
-					--it;
-					Transaction *trans = *it;
-					if(trans->date() <= last_date && (!assets_selected || accountCombo->testTransactionRelation(trans))) {
-						if(trans->date() < first_date) break;
-						if(((current_account && (trans->fromAccount() == current_account || trans->toAccount() == current_account)) || (!current_account && trans->hasTag(current_tag, true) && (trans->type() == TRANSACTION_TYPE_EXPENSE || trans->type() == TRANSACTION_TYPE_INCOME))) && (i_source <= 2 || (i_source == 4 && descriptionCombo->testTransaction(trans)) || (i_source == 3 && ((trans->type() == TRANSACTION_TYPE_EXPENSE && payeeCombo->testTransaction(trans)) || (trans->type() == TRANSACTION_TYPE_INCOME && payeeCombo->testTransaction(trans)))))) {
-							if(i_source == 2 || i_source == 4) {
-								if(trans->type() == TRANSACTION_TYPE_EXPENSE && !desc_map.contains(((Expense*) trans)->payee().toLower())) {
-									QString desc = ((Expense*) trans)->payee().toLower();
-									desc_map[desc] = ((Expense*) trans)->payee();
-									desc_values[desc] = 0.0;
-									desc_counts[desc] = 0.0;
-									if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
-									if(b_tags) {
-										for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
-									}
-								} else if(trans->type() == TRANSACTION_TYPE_INCOME && !desc_map.contains(((Income*) trans)->payer().toLower())) {
-									QString desc = ((Income*) trans)->payer().toLower();
-									desc_map[desc] = ((Income*) trans)->payer();
-									desc_values[desc] = 0.0;
-									desc_counts[desc] = 0.0;
-									if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
-									if(b_tags) {
-										for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
-									}
+			}
+		}
+		if(i_months > 0) month_values[budget->null_incomes_account].fill(0.0, i_months);
+		if(b_tags) {
+			for(int i = 0; i < budget->tags.count(); i++) tag_values[budget->null_incomes_account][budget->tags[i]] = 0.0;
+		}
+	} else {
+		if(include_subs) {
+			values[current_account] = 0.0;
+			counts[current_account] = 0.0;
+			if(i_months > 0) month_values[current_account].fill(0.0, i_months);
+			if(b_tags) {
+				for(int i = 0; i < budget->tags.count(); i++) tag_values[current_account][budget->tags[i]] = 0.0;
+			}
+			for(AccountList<CategoryAccount*>::const_iterator it = current_account->subCategories.constBegin(); it != current_account->subCategories.constEnd(); ++it) {
+				CategoryAccount *account = *it;
+				values[account] = 0.0;
+				counts[account] = 0.0;
+				if(i_months > 0) month_values[account].fill(0.0, i_months);
+				if(b_tags) {
+					for(int i = 0; i < budget->tags.count(); i++) tag_values[account][budget->tags[i]] = 0.0;					}
+			}
+		} else {
+			for(TransactionList<Transaction*>::const_iterator it = budget->transactions.constEnd(); it != budget->transactions.constBegin();) {
+				--it;
+				Transaction *trans = *it;
+				if(trans->date() <= last_date && (!assets_selected || accountCombo->testTransactionRelation(trans))) {
+					if(trans->date() < first_date) break;
+					if(((current_account && (trans->fromAccount() == current_account || trans->toAccount() == current_account)) || (!current_account && trans->hasTag(current_tag, true) && (trans->type() == TRANSACTION_TYPE_EXPENSE || trans->type() == TRANSACTION_TYPE_INCOME))) && (i_source <= 2 || (i_source == 4 && descriptionCombo->testTransaction(trans)) || (i_source == 3 && ((trans->type() == TRANSACTION_TYPE_EXPENSE && payeeCombo->testTransaction(trans)) || (trans->type() == TRANSACTION_TYPE_INCOME && payeeCombo->testTransaction(trans)))))) {
+						if(i_source == 2 || i_source == 4) {
+							if(trans->type() == TRANSACTION_TYPE_EXPENSE && !desc_map.contains(((Expense*) trans)->payee().toLower())) {
+								QString desc = ((Expense*) trans)->payee().toLower();
+								desc_map[desc] = ((Expense*) trans)->payee();
+								desc_values[desc] = 0.0;
+								desc_counts[desc] = 0.0;
+								if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
+								if(b_tags) {
+									for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
 								}
-							} else if(!desc_map.contains(trans->description().toLower())) {
-								QString desc = trans->description().toLower();
-								desc_map[desc] = trans->description();
+							} else if(trans->type() == TRANSACTION_TYPE_INCOME && !desc_map.contains(((Income*) trans)->payer().toLower())) {
+								QString desc = ((Income*) trans)->payer().toLower();
+								desc_map[desc] = ((Income*) trans)->payer();
 								desc_values[desc] = 0.0;
 								desc_counts[desc] = 0.0;
 								if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
@@ -930,50 +921,50 @@ void CategoriesComparisonReport::updateDisplay() {
 									for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
 								}
 							}
+						} else if(!desc_map.contains(trans->description().toLower())) {
+							QString desc = trans->description().toLower();
+							desc_map[desc] = trans->description();
+							desc_values[desc] = 0.0;
+							desc_counts[desc] = 0.0;
+							if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
+							if(b_tags) {
+								for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
+							}
 						}
 					}
 				}
-				Transaction *trans = NULL;
-				int split_i = 0;
-				for(ScheduledTransactionList<ScheduledTransaction*>::const_iterator it = budget->scheduledTransactions.constBegin(); it != budget->scheduledTransactions.constEnd();) {
-					ScheduledTransaction *strans = *it;
-					while(split_i == 0 && strans->transaction()->generaltype() == GENERAL_TRANSACTION_TYPE_SPLIT && ((SplitTransaction*) strans->transaction())->count() == 0) {
-						++it;
-						if(it == budget->scheduledTransactions.constEnd()) break;
-						strans = *it;
-					}
-					if(strans->transaction()->generaltype() == GENERAL_TRANSACTION_TYPE_SPLIT) {
-						trans = ((SplitTransaction*) strans->transaction())->at(split_i);
-						split_i++;
-					} else {
-						trans = (Transaction*) strans->transaction();
-					}
-					if(trans->date() >= first_date && (!assets_selected || accountCombo->testTransactionRelation(trans))) {
-						if(trans->date() > last_date) break;
-						if(((current_account && (trans->fromAccount() == current_account || trans->toAccount() == current_account)) || (!current_account && trans->hasTag(current_tag, true) && (trans->type() == TRANSACTION_TYPE_EXPENSE || trans->type() == TRANSACTION_TYPE_INCOME))) && (i_source <= 2 || (i_source == 4 && descriptionCombo->testTransaction(trans)) || (i_source == 3 && ((trans->type() == TRANSACTION_TYPE_EXPENSE && payeeCombo->testTransaction(trans)) || (trans->type() == TRANSACTION_TYPE_INCOME && payeeCombo->testTransaction(trans)))))) {
-							if(i_source == 2 || i_source == 4) {
-								if(trans->type() == TRANSACTION_TYPE_EXPENSE && !desc_map.contains(((Expense*) trans)->payee().toLower())) {
-									QString desc = ((Expense*) trans)->payee().toLower();
-									desc_map[desc] = ((Expense*) trans)->payee();
-									desc_values[desc] = 0.0;
-									desc_counts[desc] = 0.0;
-									if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
-									if(b_tags) {
-										for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
-									}
-								} else if(trans->type() == TRANSACTION_TYPE_INCOME && !desc_map.contains(((Income*) trans)->payer().toLower())) {
-									QString desc = ((Income*) trans)->payer().toLower();
-									desc_map[desc] = ((Income*) trans)->payer();
-									desc_values[desc] = 0.0;
-									desc_counts[desc] = 0.0;
-									if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
-									if(b_tags) {
-										for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
-									}
+			}
+			Transaction *trans = NULL;
+			int split_i = 0;
+			for(ScheduledTransactionList<ScheduledTransaction*>::const_iterator it = budget->scheduledTransactions.constBegin(); it != budget->scheduledTransactions.constEnd();) {
+				ScheduledTransaction *strans = *it;
+				while(split_i == 0 && strans->transaction()->generaltype() == GENERAL_TRANSACTION_TYPE_SPLIT && ((SplitTransaction*) strans->transaction())->count() == 0) {
+					++it;
+					if(it == budget->scheduledTransactions.constEnd()) break;
+					strans = *it;
+				}
+				if(strans->transaction()->generaltype() == GENERAL_TRANSACTION_TYPE_SPLIT) {
+					trans = ((SplitTransaction*) strans->transaction())->at(split_i);
+					split_i++;
+				} else {
+					trans = (Transaction*) strans->transaction();
+				}
+				if(trans->date() >= first_date && (!assets_selected || accountCombo->testTransactionRelation(trans))) {
+					if(trans->date() > last_date) break;
+					if(((current_account && (trans->fromAccount() == current_account || trans->toAccount() == current_account)) || (!current_account && trans->hasTag(current_tag, true) && (trans->type() == TRANSACTION_TYPE_EXPENSE || trans->type() == TRANSACTION_TYPE_INCOME))) && (i_source <= 2 || (i_source == 4 && descriptionCombo->testTransaction(trans)) || (i_source == 3 && ((trans->type() == TRANSACTION_TYPE_EXPENSE && payeeCombo->testTransaction(trans)) || (trans->type() == TRANSACTION_TYPE_INCOME && payeeCombo->testTransaction(trans)))))) {
+						if(i_source == 2 || i_source == 4) {
+							if(trans->type() == TRANSACTION_TYPE_EXPENSE && !desc_map.contains(((Expense*) trans)->payee().toLower())) {
+								QString desc = ((Expense*) trans)->payee().toLower();
+								desc_map[desc] = ((Expense*) trans)->payee();
+								desc_values[desc] = 0.0;
+								desc_counts[desc] = 0.0;
+								if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
+								if(b_tags) {
+									for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
 								}
-							} else if(!desc_map.contains(trans->description().toLower())) {
-								QString desc = trans->description().toLower();
-								desc_map[desc] = trans->description();
+							} else if(trans->type() == TRANSACTION_TYPE_INCOME && !desc_map.contains(((Income*) trans)->payer().toLower())) {
+								QString desc = ((Income*) trans)->payer().toLower();
+								desc_map[desc] = ((Income*) trans)->payer();
 								desc_values[desc] = 0.0;
 								desc_counts[desc] = 0.0;
 								if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
@@ -981,12 +972,21 @@ void CategoriesComparisonReport::updateDisplay() {
 									for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
 								}
 							}
+						} else if(!desc_map.contains(trans->description().toLower())) {
+							QString desc = trans->description().toLower();
+							desc_map[desc] = trans->description();
+							desc_values[desc] = 0.0;
+							desc_counts[desc] = 0.0;
+							if(i_months > 0) desc_month_values[desc].fill(0.0, i_months);
+							if(b_tags) {
+								for(int i = 0; i < budget->tags.count(); i++) desc_tag_values[desc][budget->tags[i]] = 0.0;
+							}
 						}
 					}
-					if(strans->transaction()->generaltype() != GENERAL_TRANSACTION_TYPE_SPLIT || split_i >= ((SplitTransaction*) strans->transaction())->count()) {
-						++it;
-						split_i = 0;
-					}
+				}
+				if(strans->transaction()->generaltype() != GENERAL_TRANSACTION_TYPE_SPLIT || split_i >= ((SplitTransaction*) strans->transaction())->count()) {
+					++it;
+					split_i = 0;
 				}
 			}
 		}
@@ -1498,9 +1498,15 @@ void CategoriesComparisonReport::updateDisplay() {
 		if(type == ACCOUNT_TYPE_EXPENSES) {
 			value = costs - incomes;
 			value_count = costs_count + incomes_count;
+			for(int i = i_months - 1; i >= 0; i--) {
+				month_value[i] = month_costs[i] - month_incomes[i];
+			}
 		} else {
 			value = incomes - costs;
 			value_count = incomes_count + costs_count;
+			for(int i = i_months - 1; i >= 0; i--) {
+				month_value[i] = month_incomes[i] - month_costs[i];
+			}
 		}
 	}
 

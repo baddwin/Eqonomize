@@ -141,6 +141,8 @@ TransactionFilterWidget::TransactionFilterWidget(bool extra_parameters, int tran
 		excludeSubsButton = new QCheckBox(tr("Exclude subcategories"), this);
 		filterExcludeLayout->addWidget(excludeSubsButton);
 	}
+	duplicatesButton = new QCheckBox(tr("Duplicates"), this);
+	filterExcludeLayout->addWidget(duplicatesButton);
 	filterExcludeLayout->addItem(new QSpacerItem(1, 1, QSizePolicy::Expanding, QSizePolicy::Minimum));
 	clearButton = new QPushButton(tr("Clear"), this);
 	clearButton->setEnabled(false);
@@ -161,7 +163,11 @@ TransactionFilterWidget::TransactionFilterWidget(bool extra_parameters, int tran
 		connect(tagCombo, SIGNAL(activated(int)), this, SLOT(checkEnableClear()));
 	}
 	connect(clearButton, SIGNAL(clicked()), this, SLOT(clearFilter()));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+	connect(group, SIGNAL(idClicked(int)), this, SIGNAL(filter()));
+#else
 	connect(group, SIGNAL(buttonClicked(int)), this, SIGNAL(filter()));
+#endif
 	connect(dateFromButton, SIGNAL(toggled(bool)), dateFromEdit, SLOT(setEnabled(bool)));
 	connect(dateFromButton, SIGNAL(toggled(bool)), this, SIGNAL(filter()));
 	connect(dateFromButton, SIGNAL(toggled(bool)), this, SLOT(checkEnableClear()));
@@ -185,6 +191,8 @@ TransactionFilterWidget::TransactionFilterWidget(bool extra_parameters, int tran
 	connect(maxButton, SIGNAL(toggled(bool)), maxEdit, SLOT(setEnabled(bool)));
 	connect(maxEdit, SIGNAL(valueChanged(double)), this, SIGNAL(filter()));
 	connect(exactMatchButton, SIGNAL(toggled(bool)), this, SIGNAL(filter()));
+	connect(duplicatesButton, SIGNAL(toggled(bool)), this, SIGNAL(filter()));
+	connect(duplicatesButton, SIGNAL(toggled(bool)), this, SLOT(checkEnableClear()));
 	if(excludeSubsButton) connect(excludeSubsButton, SIGNAL(toggled(bool)), this, SIGNAL(filter()));
 
 }
@@ -210,6 +218,7 @@ void TransactionFilterWidget::clearFilter() {
 	fromCombo->blockSignals(true);
 	toCombo->blockSignals(true);
 	descriptionEdit->blockSignals(true);
+	duplicatesButton->blockSignals(true);
 	if(tagCombo) tagCombo->blockSignals(true);
 	dateFromButton->setChecked(false);
 	dateFromEdit->setEnabled(false);
@@ -222,6 +231,7 @@ void TransactionFilterWidget::clearFilter() {
 	fromCombo->setCurrentIndex(0);
 	toCombo->setCurrentIndex(0);
 	descriptionEdit->setText(QString());
+	duplicatesButton->setChecked(false);
 	if(tagCombo) tagCombo->setCurrentIndex(0);
 	dateFromButton->blockSignals(false);
 	dateToEdit->blockSignals(false);
@@ -230,18 +240,19 @@ void TransactionFilterWidget::clearFilter() {
 	fromCombo->blockSignals(false);
 	toCombo->blockSignals(false);
 	descriptionEdit->blockSignals(false);
+	duplicatesButton->blockSignals(false);
 	if(tagCombo) tagCombo->blockSignals(false);
 	clearButton->setEnabled(false);
 	emit filter();
 }
 void TransactionFilterWidget::checkEnableClear() {
-	clearButton->setEnabled(dateFromButton->isChecked() || minButton->isChecked() || maxButton->isChecked() || fromCombo->currentIndex() || toCombo->currentIndex() || !descriptionEdit->text().isEmpty() || (tagCombo && tagCombo->currentIndex()) || to_date != QDate::currentDate());
+	clearButton->setEnabled(dateFromButton->isChecked() || minButton->isChecked() || maxButton->isChecked() || fromCombo->currentIndex() || toCombo->currentIndex() || !descriptionEdit->text().isEmpty() || (tagCombo && tagCombo->currentIndex()) || to_date != QDate::currentDate() || duplicatesButton->isChecked());
 }
 void TransactionFilterWidget::focusFirst() {
 	descriptionEdit->setFocus();
 	descriptionEdit->selectAll();
 }
-void TransactionFilterWidget::setFilter(QDate fromdate, QDate todate, double min, double max, Account *from_account, Account *to_account, QString description, QString tag, bool exclude, bool exact_match, bool exclude_subs) {
+void TransactionFilterWidget::setFilter(QDate fromdate, QDate todate, double min, double max, Account *from_account, Account *to_account, QString description, QString tag, bool exclude, bool exact_match, bool exclude_subs, bool duplicates) {
 	dateFromButton->blockSignals(true);
 	dateFromEdit->blockSignals(true);
 	dateToEdit->blockSignals(true);
@@ -252,6 +263,7 @@ void TransactionFilterWidget::setFilter(QDate fromdate, QDate todate, double min
 	fromCombo->blockSignals(true);
 	toCombo->blockSignals(true);
 	descriptionEdit->blockSignals(true);
+	duplicatesButton->blockSignals(true);
 	if(tagCombo) tagCombo->blockSignals(true);
 	excludeButton->blockSignals(true);
 	includeButton->blockSignals(true);
@@ -317,6 +329,7 @@ void TransactionFilterWidget::setFilter(QDate fromdate, QDate todate, double min
 	}
 	excludeButton->setChecked(exclude);
 	exactMatchButton->setChecked(exact_match);
+	duplicatesButton->setChecked(duplicates);
 	if(excludeSubsButton) excludeSubsButton->setChecked(exclude_subs);
 	checkEnableClear();
 	dateFromButton->blockSignals(false);
@@ -329,6 +342,7 @@ void TransactionFilterWidget::setFilter(QDate fromdate, QDate todate, double min
 	fromCombo->blockSignals(false);
 	toCombo->blockSignals(false);
 	descriptionEdit->blockSignals(false);
+	duplicatesButton->blockSignals(false);
 	if(tagCombo) tagCombo->blockSignals(false);
 	excludeButton->blockSignals(false);
 	includeButton->blockSignals(false);
@@ -616,6 +630,9 @@ bool TransactionFilterWidget::filterTransaction(Transactions *transs, bool check
 	}
 	if(checkdate && transs->date() > to_date) {
 		return true;
+	}
+	if(duplicatesButton->isChecked() && checkdate) {
+		if(!budget->findDuplicateTransaction(trans)) return true;
 	}
 	return false;
 }

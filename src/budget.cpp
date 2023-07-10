@@ -49,9 +49,17 @@
 
 void read_id(QXmlStreamAttributes *attr, qlonglong &id, int &rev1, int &rev2) {
 	id = attr->value("id").toLongLong();
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+	QStringView rev = attr->value("revisions");
+#else
 	QStringRef rev = attr->value("revisions");
+#endif
 	if(rev.contains(':')) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+		QVector<QStringView> rev_strs = rev.split(':');
+#else
 		QVector<QStringRef> rev_strs = rev.split(':');
+#endif
 		if(rev_strs.isEmpty()) {
 			rev1 = rev.toInt();
 		} else if(rev_strs.size() == 1) {
@@ -204,6 +212,7 @@ Budget::Budget() {
 	i_share_decimals = 4;
 	i_quotation_decimals = 4;
 	i_budget_day = 1;
+	i_budget_week = 0;
 	i_budget_month = 1;
 	i_revision = 1;
 	i_opened_revision = 0;
@@ -219,7 +228,7 @@ Budget::Budget() {
 	monetary_group_separator = QString::fromLocal8Bit(lc->mon_thousands_sep);
 	monetary_negative_sign = QString::fromLocal8Bit(lc->negative_sign);
 	monetary_positive_sign = QString::fromLocal8Bit(lc->positive_sign);
-	if(monetary_negative_sign == "-" && QLocale().negativeSign() == 0x2212) monetary_negative_sign = QLocale().negativeSign();
+	if(monetary_negative_sign == "-" && QLocale().negativeSign() == QChar(0x2212)) monetary_negative_sign = QLocale().negativeSign();
 	monetary_group_format = lc->mon_grouping;
 	monetary_decimal_places = 2;
 	decimal_separator = QString::fromLocal8Bit(lc->decimal_point);
@@ -227,7 +236,7 @@ Budget::Budget() {
 	group_separator = QString::fromLocal8Bit(lc->thousands_sep);
 	negative_sign = QString::fromLocal8Bit(lc->negative_sign);
 	positive_sign = QString::fromLocal8Bit(lc->positive_sign);
-	if(negative_sign == "-" && QLocale().negativeSign() == 0x2212) negative_sign = QLocale().negativeSign();
+	if(negative_sign == "-" && QLocale().negativeSign() == QChar(0x2212)) negative_sign = QLocale().negativeSign();
 	group_format = lc->grouping;
 #ifdef Q_OS_ANDROID
 	currency_symbol_precedes = true;
@@ -450,7 +459,7 @@ void Budget::loadCurrenciesFile(QString filename, bool is_local) {
 		qCritical() << tr("XML parse error: \"%1\" at line %2, col %3").arg(xml.errorString()).arg(xml.lineNumber()).arg(xml.columnNumber());
 		return;
 	}
-	if(xml.name() != "Eqonomize") {
+	if(xml.name() != XML_COMPARE_CONST_CHAR("Eqonomize")) {
 		qCritical() << tr("Invalid root element %1 in XML document").arg(xml.name().toString());
 		return;
 	}
@@ -460,7 +469,7 @@ void Budget::loadCurrenciesFile(QString filename, bool is_local) {
 	int currency_errors = 0;
 
 	while(xml.readNextStartElement()) {
-		if(xml.name() == "currency") {
+		if(xml.name() == XML_COMPARE_CONST_CHAR("currency")) {
 			bool valid = true;
 			Currency *currency = new Currency(this, &xml, &valid);
 			if(valid) {
@@ -469,6 +478,8 @@ void Budget::loadCurrenciesFile(QString filename, bool is_local) {
 					if(currency_old) {
 						currency_old->merge(currency, false);
 						delete currency;
+					} else if(oldversion && (currency->code() == "BYR" || currency->code() == "EEK" || currency->code() == "HRK" || currency->code() == "LVL" || currency->code() == "LTL" || currency->code() == "MRO" || currency->code() == "VEF" || currency->code() == "ZMK")) {
+							delete currency;
 					} else {
 						currency->setAsLocal();
 						currencies.append(currency);
@@ -517,13 +528,13 @@ QString Budget::loadECBData(QByteArray data) {
 	bool had_data = false;
 
 	while(xml.readNextStartElement()) {
-		if(xml.name() == "Cube") {
+		if(xml.name() == XML_COMPARE_CONST_CHAR("Cube")) {
 			while(xml.readNextStartElement()) {
-				if(xml.name() == "Cube") {
+				if(xml.name() == XML_COMPARE_CONST_CHAR("Cube")) {
 					QXmlStreamAttributes attr = xml.attributes();
 					QDate date = QDate::fromString(attr.value("time").trimmed().toString(), Qt::ISODate);
 					while(xml.readNextStartElement()) {
-						if(xml.name() == "Cube") {
+						if(xml.name() == XML_COMPARE_CONST_CHAR("Cube")) {
 							attr = xml.attributes();
 							QString code = attr.value("currency").trimmed().toString();
 							double exrate = attr.value("rate").toDouble();
@@ -568,11 +579,59 @@ QString Budget::loadECBData(QByteArray data) {
 	return QString();
 }
 
+QString Budget::loadExchangerateHostData(QByteArray data) {
+
+	QJsonDocument jdoc = QJsonDocument::fromJson(data);
+	if(!jdoc.isObject()) return tr("No exchange rates found.");
+	QJsonObject jobj = jdoc.object();
+	QJsonObject::const_iterator it = jobj.find("rates");
+	if(it == jobj.constEnd() || !it.value().isObject()) return tr("No exchange rates found.");
+	jobj = it.value().toObject();
+
+	bool had_data = false;
+
+	for(it = jobj.constBegin(); it != jobj.constEnd(); ++it) {
+		QString code = it.key();
+		if(code == "CLF" || code == "CNH" || code == "CUC" || code == "EEK" || code == "IMP") continue;
+		double exrate = it.value().toDouble();
+		if(!code.isEmpty() && code != "EUR" && exrate > 0.0) {
+			if(!had_data) {
+				for(CurrencyList<Currency*>::const_iterator it = currencies.constBegin(); it != currencies.constEnd(); ++it) {
+					Currency *cur = *it;
+					if(cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_MYCURRENCY_NET || cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_EXCHANGERATE_HOST) {
+						cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_NONE);
+					}
+				}
+			}
+			Currency *cur = findCurrency(code);
+			if(cur && cur->exchangeRateSource() != EXCHANGE_RATE_SOURCE_ECB) {
+				bool keep_old = cur->rates.size() > 1;
+				if(!keep_old) {
+					for(AccountList<AssetsAccount*>::const_iterator it = assetsAccounts.constBegin(); it != assetsAccounts.constEnd(); ++it) {
+						if((*it)->currency() == cur) {keep_old = true; break;}
+					}
+				}
+				if(!keep_old) cur->rates.clear();
+				cur->setExchangeRate(exrate);
+				cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_EXCHANGERATE_HOST);
+			}
+			had_data = true;
+		}
+	}
+
+	if(!had_data) return tr("No exchange rates found.");
+
+	return QString();
+}
+
 QString Budget::loadMyCurrencyNetData(QByteArray data) {
 
 	QJsonDocument jdoc = QJsonDocument::fromJson(data);
-	if(!jdoc.isArray()) return tr("No exchange rates found.");
-	QJsonArray jarr = jdoc.array();
+	if(!jdoc.isObject()) return tr("No exchange rates found.");
+	QJsonObject jobj = jdoc.object();
+	QJsonObject::const_iterator it = jobj.find("rates");
+	if(it == jobj.constEnd() || !it.value().isArray()) return tr("No exchange rates found.");
+	QJsonArray jarr = it.value().toArray();
 
 	bool had_data = false;
 
@@ -586,7 +645,7 @@ QString Budget::loadMyCurrencyNetData(QByteArray data) {
 				if(!had_data) {
 					for(CurrencyList<Currency*>::const_iterator it = currencies.constBegin(); it != currencies.constEnd(); ++it) {
 						Currency *cur = *it;
-						if(cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_MYCURRENCY_NET) {
+						if(cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_MYCURRENCY_NET || cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_EXCHANGERATE_HOST) {
 							cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_NONE);
 						}
 					}
@@ -602,10 +661,6 @@ QString Budget::loadMyCurrencyNetData(QByteArray data) {
 					if(!keep_old) cur->rates.clear();
 					cur->setExchangeRate(exrate);
 					cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_MYCURRENCY_NET);
-				} else if(!cur) {
-					cur = new Currency(this, code, QString(), name, exrate);
-					cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_MYCURRENCY_NET);
-					addCurrency(cur);
 				}
 				had_data = true;
 			}
@@ -658,7 +713,7 @@ QString Budget::loadMyCurrencyNetHtml(QByteArray data) {
 			if(!had_data) {
 				for(CurrencyList<Currency*>::const_iterator it = currencies.constBegin(); it != currencies.constEnd(); ++it) {
 					Currency *cur = *it;
-					if(cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_MYCURRENCY_NET) {
+					if(cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_MYCURRENCY_NET || cur->exchangeRateSource() == EXCHANGE_RATE_SOURCE_EXCHANGERATE_HOST) {
 						cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_NONE);
 					}
 				}
@@ -674,10 +729,6 @@ QString Budget::loadMyCurrencyNetHtml(QByteArray data) {
 				if(!keep_old) cur->rates.clear();
 				cur->setExchangeRate(exrate * usd_rate);
 				cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_MYCURRENCY_NET);
-			} else if(!cur) {
-				cur = new Currency(this, code, QString(), name, exrate * usd_rate);
-				cur->setExchangeRateSource(EXCHANGE_RATE_SOURCE_MYCURRENCY_NET);
-				addCurrency(cur);
 			}
 			had_data = true;
 		}
@@ -706,7 +757,9 @@ QString Budget::saveCurrencies() {
 		return tr("Couldn't open file for writing");
 	}
 	QXmlStreamWriter xml(&ofile);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 	xml.setCodec("UTF-8");
+#endif
 	xml.setAutoFormatting(true);
 	xml.setAutoFormattingIndent(-1);
 
@@ -748,7 +801,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 
 	QXmlStreamReader xml(&file);
 	if(!xml.readNextStartElement()) return tr("Not a valid Eqonomize! file (XML parse error: \"%1\" at line %2, col %3)").arg(xml.errorString()).arg(xml.lineNumber()).arg(xml.columnNumber());
-	if(xml.name() != "EqonomizeDoc") return tr("Invalid root element %1 in XML document").arg(xml.name().toString());
+	if(xml.name() != XML_COMPARE_CONST_CHAR("EqonomizeDoc")) return tr("Invalid root element %1 in XML document").arg(xml.name().toString());
 
 	QStringList s_versions = xml.attributes().value("version").toString().split('.');
 	int i_version[] = {0, 0, 0};
@@ -786,27 +839,32 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 	i_budget_month = 1;
 
 	while(xml.readNextStartElement()) {
-		if(xml.name() == "budget_period") {
+		if(xml.name() == XML_COMPARE_CONST_CHAR("budget_period")) {
 			if(merge) {
 				xml.skipCurrentElement();
 			} else {
 				while(xml.readNextStartElement()) {
-					if(xml.name() == "first_day_of_month") {
+					if(xml.name() == XML_COMPARE_CONST_CHAR("first_day_of_month")) {
 						QString s_day = xml.readElementText();
 						bool ok = true;
 						int i_day = s_day.toInt(&ok);
 						if(ok) setBudgetDay(i_day);
-					} else if(xml.name() == "first_month_of_year") {
+					} else if(xml.name() == XML_COMPARE_CONST_CHAR("first_month_of_year")) {
 						QString s_month = xml.readElementText();
 						bool ok = true;
 						int i_month = s_month.toInt(&ok);
 						if(ok) setBudgetMonth(i_month);
+					} else if(xml.name() == XML_COMPARE_CONST_CHAR("first_week_of_month")) {
+						QString s_week = xml.readElementText();
+						bool ok = true;
+						int i_week = s_week.toInt(&ok);
+						if(ok) setBudgetWeek(i_week);
 					} else {
 						xml.skipCurrentElement();
 					}
 				}
 			}
-		} else if(xml.name() == "synchronization") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("synchronization")) {
 			if(merge) {
 				xml.skipCurrentElement();
 			} else {
@@ -814,18 +872,18 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				o_sync->autosync = xml.attributes().value("autosync").toInt();
 				o_sync->revision = xml.attributes().value("revision").toInt();
 				while(xml.readNextStartElement()) {
-					if(xml.name() == "url") {
+					if(xml.name() == XML_COMPARE_CONST_CHAR("url")) {
 						o_sync->url = xml.readElementText().trimmed();
-					} else if(xml.name() == "download") {
+					} else if(xml.name() == XML_COMPARE_CONST_CHAR("download")) {
 						o_sync->download = xml.readElementText().trimmed();
-					} else if(xml.name() == "upload") {
+					} else if(xml.name() == XML_COMPARE_CONST_CHAR("upload")) {
 						o_sync->upload = xml.readElementText().trimmed();
 					} else {
 						xml.skipCurrentElement();
 					}
 				}
 			}
-		} else if(xml.name() == "currency") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("currency")) {
 			QString cur_code = xml.attributes().value("code").trimmed().toString();
 			if(!cur && !cur_code.isEmpty()) {
 				cur = findCurrency(cur_code);
@@ -839,7 +897,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				}
 			}
 			xml.skipCurrentElement();
-		} else if(xml.name() == "schedule") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("schedule")) {
 			bool valid = true;
 			ScheduledTransaction *strans = new ScheduledTransaction(this, &xml, &valid);
 			if(valid && merge && ignore_duplicate_transactions) {
@@ -897,10 +955,14 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				transaction_errors++;
 				if(strans) delete strans;
 			}
-		} else if(xml.name() == "transaction") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("transaction")) {
 			SplitTransaction *split = NULL;
 			Transaction *trans = NULL;
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+			QStringView type = xml.attributes().value("type");
+#else
 			QStringRef type = xml.attributes().value("type");
+#endif
 			bool valid = true;
 			if(type.isEmpty()) {
 				QXmlStreamAttributes attr = xml.attributes();
@@ -924,7 +986,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				}
 				type = attr.value("type");
 			}
-			if(type == "expense" || type == "refund") {
+			if(type == XML_COMPARE_CONST_CHAR("expense") || type == XML_COMPARE_CONST_CHAR("refund")) {
 				Expense *expense = new Expense(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					for(TransactionList<Expense*>::const_iterator it = expenses.constBegin(); it != expenses.constEnd(); ++it) {
@@ -939,7 +1001,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(expense) delete expense;
 				}
-			} else if(type == "income" || type == "repayment") {
+			} else if(type == XML_COMPARE_CONST_CHAR("income") || type == XML_COMPARE_CONST_CHAR("repayment")) {
 				Income *income = new Income(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					if(income->security()) {
@@ -962,7 +1024,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(income) delete income;
 				}
-			} else if(type == "dividend") {
+			} else if(type == XML_COMPARE_CONST_CHAR("dividend")) {
 				Income *income = new Income(this, &xml, &valid);
 				if(!income->security()) valid = false;
 				if(valid && merge && ignore_duplicate_transactions) {
@@ -979,7 +1041,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(income) delete income;
 				}
-			} else if(type == "reinvested_dividend") {
+			} else if(type == XML_COMPARE_CONST_CHAR("reinvested_dividend")) {
 				ReinvestedDividend *rediv = new ReinvestedDividend(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					for(SecurityTransactionList<ReinvestedDividend*>::const_iterator it = rediv->security()->reinvestedDividends.constBegin(); it != rediv->security()->reinvestedDividends.constEnd(); ++it) {
@@ -995,7 +1057,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(rediv) delete rediv;
 				}
-			} else if(type == "security_trade") {
+			} else if(type == XML_COMPARE_CONST_CHAR("security_trade")) {
 				SecurityTrade *ts = new SecurityTrade(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					for(SecurityTradeList<SecurityTrade*>::const_iterator it = securityTrades.constBegin(); it != securityTrades.constEnd(); ++it) {
@@ -1020,7 +1082,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					if(ts) delete ts;
 				}
 				xml.skipCurrentElement();
-			} else if(type == "transfer") {
+			} else if(type == XML_COMPARE_CONST_CHAR("transfer")) {
 				Transfer *transfer = new Transfer(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					for(TransactionList<Transfer*>::const_iterator it = transfers.constBegin(); it != transfers.constEnd(); ++it) {
@@ -1035,7 +1097,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(transfer) delete transfer;
 				}
-			} else if(type == "balancing") {
+			} else if(type == XML_COMPARE_CONST_CHAR("balancing")) {
 				Transfer *transfer = new Balancing(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					for(TransactionList<Transfer*>::const_iterator it = transfers.constBegin(); it != transfers.constEnd(); ++it) {
@@ -1050,7 +1112,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(transfer) delete transfer;
 				}
-			} else if(type == "security_buy") {
+			} else if(type == XML_COMPARE_CONST_CHAR("security_buy")) {
 				SecurityBuy *sectrans = new SecurityBuy(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					for(SecurityTransactionList<SecurityTransaction*>::const_iterator it = sectrans->security()->transactions.constBegin(); it != sectrans->security()->transactions.constEnd(); ++it) {
@@ -1066,7 +1128,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(sectrans) delete sectrans;
 				}
-			} else if(type == "security_sell") {
+			} else if(type == XML_COMPARE_CONST_CHAR("security_sell")) {
 				SecuritySell *sectrans = new SecuritySell(this, &xml, &valid);
 				if(valid && merge && ignore_duplicate_transactions) {
 					for(SecurityTransactionList<SecurityTransaction*>::const_iterator it = sectrans->security()->transactions.constBegin(); it != sectrans->security()->transactions.constEnd(); ++it) {
@@ -1082,11 +1144,11 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					transaction_errors++;
 					if(sectrans) delete sectrans;
 				}
-			} else if(type == "multiitem" || type == "split") {
+			} else if(type == XML_COMPARE_CONST_CHAR("multiitem") || type == XML_COMPARE_CONST_CHAR("split")) {
 				split = new MultiItemTransaction(this, &xml, &valid);
-			} else if(type == "multiaccount") {
+			} else if(type == XML_COMPARE_CONST_CHAR("multiaccount")) {
 				split = new MultiAccountTransaction(this, &xml, &valid);
-			} else if(type == "debtpayment") {
+			} else if(type == XML_COMPARE_CONST_CHAR("debtpayment")) {
 				split = new DebtPayment(this, &xml, &valid);
 			} else {
 				xml.skipCurrentElement();
@@ -1194,10 +1256,14 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					if(!tags.contains(trans->getTag(i2))) tags << trans->getTag(i2);
 				}
 			}
-		} else if(xml.name() == "category") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("category")) {
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+			QStringView type = xml.attributes().value("type");
+#else
 			QStringRef type = xml.attributes().value("type");
+#endif
 			bool valid = true;
-			if(type == "expenses") {
+			if(type == XML_COMPARE_CONST_CHAR("expenses")) {
 				ExpensesAccount *account = new ExpensesAccount(this, &xml, &valid);
 				if(valid) {
 					ExpensesAccount *old_account = NULL;
@@ -1231,7 +1297,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 					category_errors++;
 					delete account;
 				}
-			} else if(type == "incomes") {
+			} else if(type == XML_COMPARE_CONST_CHAR("incomes")) {
 				IncomesAccount *account = new IncomesAccount(this, &xml, &valid);
 				if(valid) {
 					IncomesAccount *old_account = NULL;
@@ -1269,7 +1335,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				category_errors++;
 				xml.skipCurrentElement();
 			}
-		} else if(xml.name() == "account") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("account")) {
 			if(!cur) {
 				if(merge) {
 					cur = default_currency;
@@ -1302,7 +1368,7 @@ QString Budget::loadFile(QString filename, QString &errors, bool *default_curren
 				delete account;
 			}
 
-		} else if(xml.name() == "security") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("security")) {
 			bool valid = true;
 			Security *security = new Security(this, &xml, &valid);
 			if(valid) {
@@ -1470,7 +1536,7 @@ int Budget::fileRevision(QString filename, QString &error) const {
 		error = tr("Not a valid Eqonomize! file (XML parse error: \"%1\" at line %2, col %3)").arg(xml.errorString()).arg(xml.lineNumber()).arg(xml.columnNumber());
 		return -1;
 	}
-	if(xml.name() != "EqonomizeDoc") {
+	if(xml.name() != XML_COMPARE_CONST_CHAR("EqonomizeDoc")) {
 		error = tr("Invalid root element %1 in XML document").arg(xml.name().toString());
 		return -1;
 	}
@@ -1501,7 +1567,7 @@ bool Budget::isUnsynced(QString filename, QString &error, int synced_revision) c
 		error = tr("Not a valid Eqonomize! file (XML parse error: \"%1\" at line %2, col %3)").arg(xml.errorString()).arg(xml.lineNumber()).arg(xml.columnNumber());
 		return false;
 	}
-	if(xml.name() != "EqonomizeDoc") {
+	if(xml.name() != XML_COMPARE_CONST_CHAR("EqonomizeDoc")) {
 		error = tr("Invalid root element %1 in XML document").arg(xml.name().toString());
 		return false;
 	}
@@ -1650,7 +1716,7 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 
 	QXmlStreamReader xml(&file);
 	if(!xml.readNextStartElement()) return tr("Not a valid Eqonomize! file (XML parse error: \"%1\" at line %2, col %3)").arg(xml.errorString()).arg(xml.lineNumber()).arg(xml.columnNumber());
-	if(xml.name() != "EqonomizeDoc") return tr("Invalid root element %1 in XML document").arg(xml.name().toString());
+	if(xml.name() != XML_COMPARE_CONST_CHAR("EqonomizeDoc")) return tr("Invalid root element %1 in XML document").arg(xml.name().toString());
 
 	/*QString s_version = xml.attributes().value("version").toString();
 	float f_version = s_version.toFloat();*/
@@ -1793,13 +1859,13 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 	QList<Security*> deleted_securities;
 
 	while(xml.readNextStartElement()) {
-		if(xml.name() == "budget_period") {
+		if(xml.name() == XML_COMPARE_CONST_CHAR("budget_period")) {
 			xml.skipCurrentElement();
-		} else if(xml.name() == "currency") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("currency")) {
 			xml.skipCurrentElement();
-		} else if(xml.name() == "synchronization") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("synchronization")) {
 			xml.skipCurrentElement();
-		} else if(xml.name() == "schedule") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("schedule")) {
 			bool valid = true;
 			ScheduledTransaction *strans = new ScheduledTransaction(this, &xml, &valid);
 			if(valid && strans) {
@@ -1843,21 +1909,25 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 				transaction_errors++;
 				if(strans) delete strans;
 			}
-		} else if(xml.name() == "transaction") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("transaction")) {
 			SplitTransaction *split = NULL;
 			Transaction *trans = NULL;
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+			QStringView type = xml.attributes().value("type");
+#else
 			QStringRef type = xml.attributes().value("type");
+#endif
 			bool valid = true;
-			if(type == "expense" || type == "refund") {
+			if(type == XML_COMPARE_CONST_CHAR("expense") || type == XML_COMPARE_CONST_CHAR("refund")) {
 				trans = new Expense(this, &xml, &valid);
-			} else if(type == "income" || type == "repayment") {
+			} else if(type == XML_COMPARE_CONST_CHAR("income") || type == XML_COMPARE_CONST_CHAR("repayment")) {
 				trans = new Income(this, &xml, &valid);
-			} else if(type == "dividend") {
+			} else if(type == XML_COMPARE_CONST_CHAR("dividend")) {
 				trans = new Income(this, &xml, &valid);
 				if(!((Income*) trans)->security()) valid = false;
-			} else if(type == "reinvested_dividend") {
+			} else if(type == XML_COMPARE_CONST_CHAR("reinvested_dividend")) {
 				trans = new ReinvestedDividend(this, &xml, &valid);
-			} else if(type == "security_trade") {
+			} else if(type == XML_COMPARE_CONST_CHAR("security_trade")) {
 				SecurityTrade *ts = new SecurityTrade(this, &xml, &valid);
 				if(valid && ts) {
 					QHash<qlonglong, SecurityTrade*>::iterator it = securitytrades_id.find(ts->id);
@@ -1878,19 +1948,19 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 					if(ts) delete ts;
 				}
 				xml.skipCurrentElement();
-			} else if(type == "transfer") {
+			} else if(type == XML_COMPARE_CONST_CHAR("transfer")) {
 				trans = new Transfer(this, &xml, &valid);
-			} else if(type == "balancing") {
+			} else if(type == XML_COMPARE_CONST_CHAR("balancing")) {
 				trans = new Balancing(this, &xml, &valid);
-			} else if(type == "security_buy") {
+			} else if(type == XML_COMPARE_CONST_CHAR("security_buy")) {
 				trans = new SecurityBuy(this, &xml, &valid);
-			} else if(type == "security_sell") {
+			} else if(type == XML_COMPARE_CONST_CHAR("security_sell")) {
 				trans = new SecuritySell(this, &xml, &valid);
-			} else if(type == "multiitem" || type == "split") {
+			} else if(type == XML_COMPARE_CONST_CHAR("multiitem") || type == XML_COMPARE_CONST_CHAR("split")) {
 				split = new MultiItemTransaction(this, &xml, &valid);
-			} else if(type == "multiaccount") {
+			} else if(type == XML_COMPARE_CONST_CHAR("multiaccount")) {
 				split = new MultiAccountTransaction(this, &xml, &valid);
-			} else if(type == "debtpayment") {
+			} else if(type == XML_COMPARE_CONST_CHAR("debtpayment")) {
 				split = new DebtPayment(this, &xml, &valid);
 			}
 			if(split) {
@@ -2013,10 +2083,14 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 					}
 				}
 			}
-		} else if(xml.name() == "category") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("category")) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+			QStringView type = xml.attributes().value("type");
+#else
 			QStringRef type = xml.attributes().value("type");
+#endif
 			bool valid = true;
-			if(type == "expenses") {
+			if(type == XML_COMPARE_CONST_CHAR("expenses")) {
 				ExpensesAccount *account = new ExpensesAccount(this, &xml, &valid);
 				if(valid) {
 					QHash<qlonglong, ExpensesAccount*>::iterator it = old_expensesAccounts_id.find(account->id());
@@ -2082,7 +2156,7 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 					category_errors++;
 					delete account;
 				}
-			} else if(type == "incomes") {
+			} else if(type == XML_COMPARE_CONST_CHAR("incomes")) {
 				IncomesAccount *account = new IncomesAccount(this, &xml, &valid);
 				if(valid) {
 					QHash<qlonglong, IncomesAccount*>::iterator it = old_incomesAccounts_id.find(account->id());
@@ -2147,7 +2221,7 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 					delete account;
 				}
 			}
-		} else if(xml.name() == "account") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("account")) {
 			bool valid = true;
 			AssetsAccount *account = new AssetsAccount(this, &xml, &valid);
 			if(valid) {
@@ -2170,7 +2244,7 @@ QString Budget::syncFile(QString filename, QString &errors, int synced_revision)
 				category_errors++;
 				delete account;
 			}
-		} else if(xml.name() == "security") {
+		} else if(xml.name() == XML_COMPARE_CONST_CHAR("security")) {
 			bool valid = true;
 			Security *security = new Security(this, &xml, &valid);
 			if(valid) {
@@ -2328,7 +2402,9 @@ QString Budget::saveFile(QString filename, QFile::Permissions permissions, bool 
 	if(!is_backup) i_opened_revision = i_revision;
 
 	QXmlStreamWriter xml(&ofile);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 	xml.setCodec("UTF-8");
+#endif
 	xml.setAutoFormatting(true);
 	xml.setAutoFormattingIndent(-1);
 
@@ -2351,6 +2427,7 @@ QString Budget::saveFile(QString filename, QFile::Permissions permissions, bool 
 	}
 	xml.writeStartElement("budget_period");
 	xml.writeTextElement("first_day_of_month", QString::number(i_budget_day));
+	if(i_budget_week != 0) xml.writeTextElement("first_week_of_month", QString::number(i_budget_week));
 	xml.writeTextElement("first_month_of_year", QString::number(i_budget_month));
 	xml.writeEndElement();
 	xml.writeStartElement("currency");
@@ -2855,10 +2932,16 @@ void Budget::splitTransactionDateModified(SplitTransaction*, const QDate&) {}
 
 Transaction *Budget::findDuplicateTransaction(Transaction *trans) {
 	TransactionList<Transaction*>::const_iterator it = std::lower_bound(transactions.constBegin(), transactions.constEnd(), trans, transaction_list_less_than);
+	TransactionList<Transaction*>::const_iterator it2 = it;
 	while(it != transactions.constEnd()) {
-		if((*it)->date() > trans->date()) return NULL;
-		if(trans->equals(*it, false)) return *it;
+		if((*it)->date() > trans->date()) break;
+		if(trans != *it && trans->equals(*it, false)) return *it;
 		++it;
+	}
+	while(it2 != transactions.constBegin()) {
+		--it2;
+		if((*it2)->date() != trans->date()) break;
+		if(trans != *it2 && trans->equals(*it2, false)) return *it2;
 	}
 	return NULL;
 }
@@ -3104,8 +3187,20 @@ bool Budget::usesMultipleCurrencies() {
 	return false;
 }
 
-void Budget::setBudgetDay(int day_of_month) {if(day_of_month <= 28 && day_of_month >= -26) i_budget_day = day_of_month;}
+void Budget::setBudgetDay(int day_of_month) {
+	if(day_of_month <= 28 && day_of_month >= -26) {
+		i_budget_day = day_of_month;
+		if(i_budget_day < 1 || i_budget_day > 7) i_budget_week = 0;
+	}
+}
 int Budget::budgetDay() const {return i_budget_day;}
+void Budget::setBudgetWeek(int week_of_month) {
+	if(week_of_month <= 4 && week_of_month >= -3) {
+		i_budget_week = week_of_month;
+		if(i_budget_week != 0 && (i_budget_day < 1 || i_budget_day > 7)) i_budget_day = 1;
+	}
+}
+int Budget::budgetWeek() const {return i_budget_week;}
 void Budget::setBudgetMonth(int month_of_year) {if(month_of_year <= 12 && month_of_year >= 1) i_budget_month = month_of_year;}
 int Budget::budgetMonth() const {return i_budget_month;}
 
@@ -3151,13 +3246,35 @@ int daysPerMonth(int month, long int year) {
 	}
 }
 
+QDate nthWeekdayOfMonth(QDate date, int day, int week) {
+	if(week == 0) return date;
+	int d = 1;
+	if(week < 0) {
+		date.setDate(date.year(), date.month(), date.daysInMonth());
+		d = date.day();
+		int wd = date.dayOfWeek();
+		if(wd >= day) d -= wd - day;
+		else d -= wd + 7 - day;
+		d += (1 + week) * 7;
+	} else {
+		date.setDate(date.year(), date.month(), 1);
+		int wd = date.dayOfWeek();
+		if(wd > day) d += 7 - wd + day;
+		else d += day - wd;
+		d += (week - 1) * 7;
+		if(d > date.daysInMonth()) d = date.daysInMonth();
+	}
+	date.setDate(date.year(), date.month(), d);
+	return date;
+}
+
 bool Budget::isSameBudgetMonth(const QDate &date1, const QDate &date2) const {
 	return budgetYear(date1) == budgetYear(date2) && budgetMonth(date1) == budgetMonth(date2);
 }
 int Budget::daysInBudgetMonth(const QDate &date) const {
-	if(i_budget_day == 1) {
+	if(i_budget_day == 1 && i_budget_week == 0) {
 		return date.daysInMonth();
-	} else if(i_budget_day > 0) {
+	} else if(i_budget_day > 0 && i_budget_week == 0) {
 		if(date.day() >= i_budget_day) return date.daysInMonth();
 		return date.addMonths(-1).daysInMonth();
 	} else {
@@ -3165,20 +3282,32 @@ int Budget::daysInBudgetMonth(const QDate &date) const {
 	}
 }
 int Budget::daysInBudgetYear(const QDate &date) const {
+	if(i_budget_week != 0) return firstBudgetDayOfYear(date).daysTo(lastBudgetDayOfYear(date)) + 1;
 	if(i_budget_day == 1 && i_budget_month == 1) return date.daysInYear();
 	int i_year = budgetYear(date);
 	if(i_budget_month > 3 ||  (i_budget_month == 3 && (i_budget_day <= 15 || i_budget_day >= 29) && (i_budget_day >= 0 || i_budget_day < -15))) i_year++;
 	return daysPerYear(i_year);
 }
 int Budget::dayOfBudgetYear(const QDate &date) const {
-	if(i_budget_day == 1 && i_budget_month == 1) return date.dayOfYear();
+	if(i_budget_day == 1 && i_budget_month == 1 && i_budget_week == 0) return date.dayOfYear();
 	return firstBudgetDayOfYear(date).daysTo(date) + 1;
 }
 int Budget::dayOfBudgetMonth(const QDate &date) const {
-	if(i_budget_day == 1) return date.day();
+	if(i_budget_day == 1 && i_budget_week == 0) return date.day();
 	return firstBudgetDay(date).daysTo(date) + 1;
 }
 int Budget::budgetMonth(const QDate &date) const {
+	if(i_budget_week != 0) {
+		QDate d = nthWeekdayOfMonth(date, i_budget_day, i_budget_week);
+		if(i_budget_week > 2 || (i_budget_week < 0 && i_budget_week >= -2)) {
+			if(date < d) return date.month();
+			else if(date.month() == 12) return 1;
+			return date.month() + 1;
+		}
+		if(date >= d) return date.month();
+		else if(date.month() == 1) return 12;
+		return date.month() - 1;
+	}
 	int i_month = 1;
 	if(i_budget_day == 1) {
 		i_month = date.month();
@@ -3198,15 +3327,27 @@ int Budget::budgetMonth(const QDate &date) const {
 	return i_month;
 }
 int Budget::budgetYear(const QDate &date) const {
-	if(i_budget_day == 1 && i_budget_month == 1) return date.year();
-	int ibd = i_budget_day;
+	if(i_budget_day == 1 && i_budget_month == 1 && i_budget_week == 0) return date.year();
 	int year = date.year();
-	if(i_budget_day <= 0) ibd = daysPerMonth(i_budget_month == 1 ? 12 : i_budget_month - 1, year) + i_budget_day;
-	if(i_budget_month > 1 && date.month() < i_budget_month) year--;
-	if(i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15)) {
-		if(date.month() == (i_budget_month == 1 ? 12 : i_budget_month - 1) && date.day() >= ibd) year++;
+	if(i_budget_week != 0) {
+		if(i_budget_week > 2 || (i_budget_week < 0 && i_budget_week >= -2)) {
+			if(i_budget_month == 1) {
+				if(date.month() == 12 && date >= nthWeekdayOfMonth(date, i_budget_day, i_budget_week)) year++;
+			} else if(date.month() < i_budget_month - 1 || (date.month() == i_budget_month - 1 && date < nthWeekdayOfMonth(date, i_budget_day, i_budget_week))) {
+				year--;
+			}
+		} else if(date.month() < i_budget_month || (date.month() == i_budget_month && date < nthWeekdayOfMonth(date, i_budget_day, i_budget_week))) {
+			year--;
+		}
 	} else {
-		if(date.month() == i_budget_month && date.day() < ibd) year--;
+		int ibd = i_budget_day;
+		if(i_budget_day <= 0) ibd = daysPerMonth(i_budget_month == 1 ? 12 : i_budget_month - 1, year) + i_budget_day;
+		if(i_budget_month > 1 && date.month() < i_budget_month) year--;
+		if(i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15)) {
+			if(date.month() == (i_budget_month == 1 ? 12 : i_budget_month - 1) && date.day() >= ibd) year++;
+		} else {
+			if(date.month() == i_budget_month && date.day() < ibd) year--;
+		}
 	}
 	return year;
 }
@@ -3239,29 +3380,49 @@ QString Budget::budgetYearString(int year, bool short_format) const {
 }
 
 QDate Budget::firstBudgetDayOfYear(QDate date) const {
-	if(i_budget_month == 1 && i_budget_day == 1) return QDate(date.year(), 1, 1);
+	if(i_budget_month == 1 && i_budget_day == 1 && i_budget_week == 0) return QDate(date.year(), 1, 1);
 	int i_year = budgetYear(date);
+	if(i_budget_week != 0) {
+		return firstBudgetDay(QDate(i_year, i_budget_month, i_budget_week > 2 || (i_budget_week < 0 && i_budget_week >= -2) ? 1 : 31));
+	}
 	if(i_budget_month == 1 && (i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15))) i_year--;
 	int ibd = i_budget_day;
 	if(i_budget_day <= 0) ibd = daysPerMonth(i_budget_month == 1 ? 12 : i_budget_month - 1, i_year) + i_budget_day;
 	return QDate(i_year, ibd > 15 ? (i_budget_month == 1 ? 12 : i_budget_month - 1) : i_budget_month, ibd);
 }
 QDate Budget::lastBudgetDayOfYear(QDate date) const {
-	if(i_budget_month == 1 && i_budget_day == 1) return QDate(date.year(), 12, 31);
+	if(i_budget_month == 1 && i_budget_day == 1 && i_budget_week == 0) return QDate(date.year(), 12, 31);
 	int i_year = budgetYear(date);
+	if(i_budget_week != 0) {
+		return lastBudgetDay(QDate(i_budget_month > 1 ? i_year + 1 : i_year, i_budget_month == 1 ? 12 : i_budget_month - 1, i_budget_week > 2 || (i_budget_week < 0 && i_budget_week >= -2) ? 1 : 31));
+	}
 	if(i_budget_month == 1 && (i_budget_day > 15 || (i_budget_day < 1 && i_budget_day >= -15))) i_year--;
 	int ibd = i_budget_day;
 	if(i_budget_day <= 0) ibd = daysPerMonth(i_budget_month == 1 ? 12 : i_budget_month - 1, i_year + 1) + i_budget_day;
 	return QDate(i_year + 1, ibd > 15 ? (i_budget_month == 1 ? 12 : i_budget_month - 1) : i_budget_month, ibd).addDays(-1);
 }
 bool Budget::isFirstBudgetDay(const QDate &date) const {
+	if(i_budget_week != 0) return date == firstBudgetDay(date);
 	return ((i_budget_day > 0 && date.day() == i_budget_day) || (i_budget_day <= 0 && date.day() == date.daysInMonth() + i_budget_day));
 }
 bool Budget::isLastBudgetDay(const QDate &date) const {
+	if(i_budget_week != 0) return date == lastBudgetDay(date);
 	return ((i_budget_day == 1 && date.day() == date.daysInMonth()) || (i_budget_day > 1 && date.day() == i_budget_day - 1) || (i_budget_day <= 0 && date.day() == date.daysInMonth() + i_budget_day - 1));
 }
 void Budget::addBudgetMonthsSetLast(QDate &date, int months) const {
-	if(i_budget_day <= 0) {
+	if(i_budget_week != 0) {
+		if(months > 0) {
+			date = lastBudgetDay(date);
+			date = date.addDays(1);
+			if(months > 1) date = QDate(date.year(), date.month(), date.daysInMonth()).addMonths(months - 1);
+		}
+		if(months < 0) {
+			date = firstBudgetDay(date);
+			date = date.addDays(-1);
+			if(months < -1) date = QDate(date.year(), date.month(), 1).addMonths(months + 1);
+			else return;
+		}
+	} else if(i_budget_day <= 0) {
 		int dfl = date.daysInMonth() - date.day();
 		date = date.addMonths(months);
 		if(date.daysInMonth() > dfl) date.setDate(date.year(), date.month(), date.daysInMonth() - dfl);
@@ -3271,7 +3432,19 @@ void Budget::addBudgetMonthsSetLast(QDate &date, int months) const {
 	date = lastBudgetDay(date);
 }
 void Budget::addBudgetMonthsSetFirst(QDate &date, int months) const {
-	if(i_budget_day <= 0) {
+	if(i_budget_week != 0) {
+		if(months > 0) {
+			date = lastBudgetDay(date);
+			date = date.addDays(1);
+			if(months > 1) date = QDate(date.year(), date.month(), date.daysInMonth()).addMonths(months - 1);
+			else return;
+		}
+		if(months < 0) {
+			date = firstBudgetDay(date);
+			date = date.addDays(-1);
+			if(months < -1) date = QDate(date.year(), date.month(), 1).addMonths(months + 1);
+		}
+	} else if(i_budget_day <= 0) {
 		int dfl = date.daysInMonth() - date.day();
 		date = date.addMonths(months);
 		if(date.daysInMonth() > dfl) date.setDate(date.year(), date.month(), date.daysInMonth() - dfl);
@@ -3281,7 +3454,10 @@ void Budget::addBudgetMonthsSetFirst(QDate &date, int months) const {
 	date = firstBudgetDay(date);
 }
 QDate Budget::budgetDateToMonth(QDate date) const {
-	if(i_budget_day == 1 && i_budget_month == 1) return date;
+	if(i_budget_day == 1 && i_budget_month == 1 && i_budget_week == 0) return date;
+	if(i_budget_week != 0) {
+		return QDate(budgetYear(date), budgetMonth(date), 1);
+	}
 	int ibd = i_budget_day;
 	int year = date.year();
 	int month = date.month();
@@ -3299,6 +3475,14 @@ QDate Budget::budgetDateToMonth(QDate date) const {
 	return date;
 }
 QDate Budget::firstBudgetDay(QDate date) const {
+	if(i_budget_week != 0) {
+		QDate d = nthWeekdayOfMonth(date, i_budget_day, i_budget_week);
+		if(d > date) {
+			date = date.addMonths(-1);
+			return nthWeekdayOfMonth(date, i_budget_day, i_budget_week);
+		}
+		return d;
+	}
 	int ibd = i_budget_day;
 	if(i_budget_day < 1) ibd = date.daysInMonth() + i_budget_day;
 	if(date.day() < ibd) {
@@ -3309,6 +3493,16 @@ QDate Budget::firstBudgetDay(QDate date) const {
 	return date;
 }
 QDate Budget::lastBudgetDay(QDate date) const {
+	if(i_budget_week != 0) {
+		QDate d = nthWeekdayOfMonth(date, i_budget_day, i_budget_week);
+		d = d.addDays(-1);
+		if(d < date) {
+			date = date.addMonths(1);
+			d = nthWeekdayOfMonth(date, i_budget_day, i_budget_week);
+			d = d.addDays(-1);
+		}
+		return d;
+	}
 	int ibd = i_budget_day;
 	if(i_budget_day < 1) ibd = date.daysInMonth() + i_budget_day;
 	if(ibd == 1) {
@@ -3323,6 +3517,14 @@ QDate Budget::lastBudgetDay(QDate date) const {
 	return date;
 }
 QDate Budget::monthToBudgetMonth(QDate date) const {
+	if(i_budget_week != 0) {
+		QDate d = nthWeekdayOfMonth(date, i_budget_day, i_budget_week);
+		if(d > date || i_budget_week > 2 || (i_budget_week < 0 && i_budget_week >= -2)) {
+			date = date.addMonths(-1);
+			return nthWeekdayOfMonth(date, i_budget_day, i_budget_week);
+		}
+		return d;
+	}
 	int ibd = i_budget_day;
 	if(i_budget_day < 1) ibd = date.daysInMonth() + i_budget_day;
 	if(date.day() == ibd) return date;
@@ -3350,7 +3552,8 @@ void Budget::goForwardBudgetMonths(QDate &from_date, QDate &to_date, int months)
 }
 double Budget::averageMonth(const QDate &date1, const QDate &date2, bool use_budget_months) {
 	int saved_i_budget_day = i_budget_day;
-	if(!use_budget_months) i_budget_day = 1;
+	int saved_i_budget_week = i_budget_week;
+	if(!use_budget_months) {i_budget_day = 1; i_budget_week = 0;}
 	double average_month = (double) daysInBudgetYear(date1) / (double) 12;
 	int years = 1;
 	QDate ydate = firstBudgetDayOfYear(date1);
@@ -3361,11 +3564,13 @@ double Budget::averageMonth(const QDate &date1, const QDate &date2, bool use_bud
 		addBudgetMonthsSetFirst(ydate, 12);
 	}
 	i_budget_day = saved_i_budget_day;
+	i_budget_week = saved_i_budget_week;
 	return average_month / years;
 }
 double Budget::averageYear(const QDate &date1, const QDate &date2, bool use_budget_months) {
 	int saved_i_budget_day = i_budget_day;
-	if(!use_budget_months) i_budget_day = 1;
+	int saved_i_budget_week = i_budget_week;
+	if(!use_budget_months) {i_budget_day = 1; i_budget_week = 0;}
 	double average_year = daysInBudgetYear(date1);
 	int years = 1;
 	QDate ydate = firstBudgetDayOfYear(date1);
@@ -3376,11 +3581,13 @@ double Budget::averageYear(const QDate &date1, const QDate &date2, bool use_budg
 		addBudgetMonthsSetFirst(ydate, 12);
 	}
 	i_budget_day = saved_i_budget_day;
+	i_budget_week = saved_i_budget_week;
 	return average_year / years;
 }
 double Budget::yearsBetweenDates(const QDate &date1, const QDate &date2, bool use_budget_months) {
 	int saved_i_budget_day = i_budget_day;
-	if(!use_budget_months) i_budget_day = 1;
+	int saved_i_budget_week = i_budget_week;
+	if(!use_budget_months) {i_budget_day = 1; i_budget_week = 0;}
 	double years = 0.0;
 	if(budgetYear(date1) == budgetYear(date2)) {
 		int days = date1.daysTo(date2) + 1;
@@ -3391,11 +3598,15 @@ double Budget::yearsBetweenDates(const QDate &date1, const QDate &date2, bool us
 		years += (double) dayOfBudgetYear(date2) / (double) daysInBudgetYear(date2);
 	}
 	i_budget_day = saved_i_budget_day;
+	i_budget_week = saved_i_budget_week;
 	return years;
 }
 double Budget::monthsBetweenDates(const QDate &date1, const QDate &date2, bool use_budget_months) {
 	int saved_i_budget_day = i_budget_day;
-	if(!use_budget_months) i_budget_day = 1;
+	int saved_i_budget_week = i_budget_week;
+	int saved_i_budget_month = i_budget_month;
+	i_budget_month = 1;
+	if(!use_budget_months) {i_budget_day = 1; i_budget_week = 0;}
 	double months = 0.0;
 	if(budgetYear(date1) == budgetYear(date2)) {
 		if(budgetMonth(date1) == budgetMonth(date2)) {
@@ -3414,11 +3625,16 @@ double Budget::monthsBetweenDates(const QDate &date1, const QDate &date2, bool u
 		months += budgetMonth(date2) - 1;
 	}
 	i_budget_day = saved_i_budget_day;
+	i_budget_week = saved_i_budget_week;
+	i_budget_month = saved_i_budget_month;
 	return months;
 }
 int Budget::calendarMonthsBetweenDates(const QDate &date1, const QDate &date2, bool use_budget_months) {
 	int saved_i_budget_day = i_budget_day;
-	if(!use_budget_months) i_budget_day = 1;
+	int saved_i_budget_week = i_budget_week;
+	int saved_i_budget_month = i_budget_month;
+	i_budget_month = 1;
+	if(!use_budget_months) {i_budget_day = 1; i_budget_week = 0;}
 	if(budgetYear(date1) == budgetYear(date2)) {
 		return budgetMonth(date2) - budgetMonth(date1);
 	}
@@ -3426,6 +3642,8 @@ int Budget::calendarMonthsBetweenDates(const QDate &date1, const QDate &date2, b
 	months += (budgetYear(date2) - (budgetYear(date1) + 1)) * 12;
 	months += budgetMonth(date2);
 	i_budget_day = saved_i_budget_day;
+	i_budget_week = saved_i_budget_week;
+	i_budget_month = saved_i_budget_month;
 	return months;
 }
 

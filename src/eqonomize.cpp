@@ -1,5 +1,5 @@
 /***************************************************************************
- *   Copyright (C) 2006-2008, 2014, 2016-2020 by Hanna Knutsson            *
+ *   Copyright (C) 2006-2008, 2014, 2016-2023 by Hanna Knutsson            *
  *   hanna.knutsson@protonmail.com                                         *
  *                                                                         *
  *   This file is part of Eqonomize!.                                      *
@@ -26,7 +26,11 @@
 #include <QCheckBox>
 #include <QDragEnterEvent>
 #include <QDropEvent>
-#include <QDesktopWidget>
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+#	include <QScreen>
+#else
+#	include <QDesktopWidget>
+#endif
 #include <QGridLayout>
 #include <QGroupBox>
 #include <QHBoxLayout>
@@ -86,6 +90,8 @@
 #include <QInputDialog>
 #include <QScrollArea>
 #include <QToolTip>
+#include <QStyleFactory>
+#include <QStandardPaths>
 
 #include <QDebug>
 
@@ -144,7 +150,11 @@ Eqonomize *mainwin;
 QString last_document_directory, last_associated_file_directory, last_picture_directory;
 
 QColor createExpenseColor(QColor base_color) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+	float r, g, b;
+#else
 	qreal r, g, b;
+#endif
 	base_color.getRgbF(&r, &g, &b);
 	if(r >= 0.8) {
 		g /= 1.5;
@@ -158,7 +168,11 @@ QColor createExpenseColor(QColor base_color) {
 	return base_color;
 }
 QColor createIncomeColor(QColor base_color) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+	float r, g, b;
+#else
 	qreal r, g, b;
+#endif
 	base_color.getRgbF(&r, &g, &b);
 	if(g >= 0.8) {
 		r /= 1.5;
@@ -172,7 +186,11 @@ QColor createIncomeColor(QColor base_color) {
 	return base_color;
 }
 QColor createTransferColor(QColor base_color) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+	float r, g, b;
+#else
 	qreal r, g, b;
+#endif
 	base_color.getRgbF(&r, &g, &b);
 	if(b >= 0.8) {
 		g /= 1.5;
@@ -214,12 +232,14 @@ void setAccountBudgetColor(QTreeWidgetItem *i, double budget_rem, bool is_expens
 void setColumnTextWidth(QTreeWidget *w, int i, QString str) {
 	QFontMetrics fm(w->font());
 	int tw = fm.boundingRect(str).width() + 10;
-	int hw = fm.boundingRect(w->headerItem()->text(i)).width() + 10;
-	if(w->columnWidth(i) < tw) w->setColumnWidth(i, tw);
-	if(w->columnWidth(i) < hw) w->setColumnWidth(i, hw);
+	int hw = fm.boundingRect(w->headerItem()->text(i) + "XXX").width();
+	if(tw > hw) w->setColumnWidth(i, tw);
+	else w->setColumnWidth(i, hw);
+	//if(w->columnWidth(i) < tw) w->setColumnWidth(i, tw);
+	//if(w->columnWidth(i) < hw) w->setColumnWidth(i, hw);
 }
 void setColumnDateWidth(QTreeWidget *w, int i) {
-	setColumnTextWidth(w, i, QLocale().toString(QDate::currentDate(), QLocale::ShortFormat));
+	setColumnTextWidth(w, i, QLocale().toString(QDate::currentDate(), QLocale::ShortFormat) + "X");
 }
 void setColumnMoneyWidth(QTreeWidget *w, int i, Budget *budget, double v = 9999999.99, int d = -1) {
 	setColumnTextWidth(w, i, budget->formatMoney(v, d, false) + " XXX");
@@ -1061,6 +1081,16 @@ EditQuotationsDialog::EditQuotationsDialog(Security *sec, QWidget *parent) : QDi
 	quotationsView->setAllColumnsShowFocus(true);
 	quotationsView->setColumnCount(2);
 	quotationsView->setAlternatingRowColors(true);
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+	QPalette p = palette();
+	QColor c = p.color(QPalette::Active, QPalette::Base);
+	if(c.lightness() > 0x7f) c = c.darker(105);
+	else c = c.lighter(125);
+	p.setColor(QPalette::Active, QPalette::AlternateBase, c);
+	p.setColor(QPalette::Inactive, QPalette::AlternateBase, c);
+	p.setColor(QPalette::Disabled, QPalette::AlternateBase, c);
+	setPalette(p);
+#endif
 	QStringList headers;
 	headers << tr("Date");
 	headers << tr("Price per Share", "Financial Shares");
@@ -1246,7 +1276,9 @@ bool EditQuotationsDialog::import(QString url, bool test, q_csv_info *ci) {
 	last_document_directory = fileInfo.absoluteDir().absolutePath();
 
 	QTextStream fstream(&file);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 	fstream.setCodec("UTF-8");
+#endif
 
 	int row = 0;
 	QString line = fstream.readLine();
@@ -1567,7 +1599,9 @@ void EditQuotationsDialog::exportQuotations() {
 	QTextStream outf(&ofile);
 	switch(filetype) {
 		case 'h': {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 			outf.setCodec("UTF-8");
+#endif
 			outf << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << '\n';
 			outf << "<html>" << '\n';
 			outf << "\t<head>" << '\n';
@@ -2429,17 +2463,9 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	QSettings settings;
 	settings.beginGroup("GeneralOptions");
 
-	QString sfont = settings.value("font").toString();
-	if(!sfont.isEmpty()) {
-		QFont font;
-		font.fromString(sfont);
-		qApp->processEvents();
-		if(font.family() == qApp->font().family() && font.pointSize() == qApp->font().pointSize() && font.pixelSize() == qApp->font().pixelSize() && font.overline() == qApp->font().overline() && font.stretch() == qApp->font().stretch() && font.letterSpacing() == qApp->font().letterSpacing() && font.underline() == qApp->font().underline() && font.style() == qApp->font().style() && font.weight() == qApp->font().weight()) {
-			settings.remove("font");
-		} else {
-			qApp->setFont(font);
-		}
-	}
+#if !defined _WIN32 || (QT_VERSION < QT_VERSION_CHECK(6, 5, 0))
+	if(settings.value("darkMode", false).toBool()) updatePalette(true);
+#endif
 
 	b_extra = settings.value("useExtraProperties", true).toBool();
 	int initial_period = settings.value("initialPeriod", int(0)).toInt();
@@ -2543,9 +2569,6 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	QFontMetrics fm(accountsView->font());
 	accountsView->header()->setSectionResizeMode(QHeaderView::Fixed);
 	accountsView->header()->setSectionResizeMode(0, QHeaderView::Stretch);
-	setColumnTextWidth(accountsView, BUDGET_COLUMN, tr("%2 of %1", "%1: budget; %2: remaining budget").arg(budget->formatMoney(99999999.99)).arg(budget->formatMoney(99999999.99)));
-	setColumnMoneyWidth(accountsView, CHANGE_COLUMN, budget, 999999999999.99);
-	setColumnMoneyWidth(accountsView, VALUE_COLUMN, budget, 999999999999.99);
 	assetsItem = new TotalListViewItem(accountsView, tr("Assets"), QString(), budget->formatMoney(0.0), budget->formatMoney(0.0) + " ");
 	assetsItem->setIcon(0, LOAD_ICON("eqz-account"));
 	liabilitiesItem = new TotalListViewItem(accountsView, assetsItem, tr("Liabilities"), QString(), budget->formatMoney(0.0), budget->formatMoney(0.0) + " ");
@@ -2701,6 +2724,7 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	incomesLayout->setContentsMargins(0, 0, 0, 0);
 	incomesWidget = new TransactionListWidget(b_extra, TRANSACTION_TYPE_INCOME, budget, this, incomes_page);
 	connect(incomesWidget, SIGNAL(accountAdded(Account*)), this, SLOT(accountAdded(Account*)));
+	connect(incomesWidget, SIGNAL(currenciesModified()), this, SLOT(currenciesModified()));
 	connect(incomesWidget, SIGNAL(valueAlignmentUpdated(bool)), this, SLOT(valueAlignmentUpdated(bool)));
 	connect(incomesWidget, SIGNAL(tagAdded(QString)), this, SLOT(tagAdded(QString)));
 	incomesLayout->addWidget(incomesWidget);
@@ -2709,6 +2733,7 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	transfersLayout->setContentsMargins(0, 0, 0, 0);
 	transfersWidget = new TransactionListWidget(b_extra, TRANSACTION_TYPE_TRANSFER, budget, this, transfers_page);
 	connect(transfersWidget, SIGNAL(accountAdded(Account*)), this, SLOT(accountAdded(Account*)));
+	connect(transfersWidget, SIGNAL(currenciesModified()), this, SLOT(currenciesModified()));
 	connect(transfersWidget, SIGNAL(valueAlignmentUpdated(bool)), this, SLOT(valueAlignmentUpdated(bool)));
 	connect(transfersWidget, SIGNAL(tagAdded(QString)), this, SLOT(tagAdded(QString)));
 	transfersLayout->addWidget(transfersWidget);
@@ -2746,21 +2771,13 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	securitiesView->setHeaderLabels(securitiesViewHeaders);
 	securitiesView->setRootIsDecorated(false);
 	securitiesView->header()->setStretchLastSection(false);
-	setColumnStrlenWidth(securitiesView, 0, 25);
-	setColumnMoneyWidth(securitiesView, 1, budget);
-	setColumnValueWidth(securitiesView, 2, 999999.99, 4, budget);
-	setColumnMoneyWidth(securitiesView, 2, budget, 9999999.99, 4);
-	setColumnMoneyWidth(securitiesView, 4, budget);
-	setColumnMoneyWidth(securitiesView, 5, budget);
-	setColumnValueWidth(securitiesView, 6, 99.99, 2, budget);
-	setColumnStrlenWidth(securitiesView, 7, 10);
-	setColumnStrlenWidth(securitiesView, 8, 10);
 	sp = securitiesView->sizePolicy();
 	sp.setVerticalPolicy(QSizePolicy::MinimumExpanding);
 	securitiesView->setSizePolicy(sp);
 	securitiesViewLayout->addWidget(securitiesView);
 
 	securitiesStatLabel = new QLabel(securities_page);
+	securitiesStatLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
 	securitiesViewLayout->addWidget(securitiesStatLabel);
 
 	QGroupBox *periodGroup = new QGroupBox(tr("Statistics Period"), securities_page);
@@ -2852,14 +2869,6 @@ Eqonomize::Eqonomize() : QMainWindow() {
 	scheduleView->setHeaderLabels(scheduleViewHeaders);
 	scheduleView->setColumnHidden(6, true);
 	scheduleView->setColumnHidden(7, true);
-	setColumnDateWidth(scheduleView, 0);
-	setColumnStrlenWidth(scheduleView, 1, 15);
-	setColumnStrlenWidth(scheduleView, 2, 25);
-	setColumnMoneyWidth(scheduleView, 3, budget);
-	setColumnStrlenWidth(scheduleView, 4, 15);
-	setColumnStrlenWidth(scheduleView, 5, 15);
-	setColumnStrlenWidth(scheduleView, 6, 15);
-	setColumnStrlenWidth(scheduleView, 7, 15);
 	scheduleView->setRootIsDecorated(false);
 	sp = scheduleView->sizePolicy();
 	sp.setVerticalPolicy(QSizePolicy::MinimumExpanding);
@@ -2927,14 +2936,14 @@ Eqonomize::Eqonomize() : QMainWindow() {
 
 	settings.endGroup();
 
+	updateColumnWidths();
+
 	readOptions();
 
 	if(first_run) {
 		QFontMetrics fm(accountsView->font());
 		int w = fm.boundingRect(accountsView->headerItem()->text(0)).width() + fm.boundingRect(QString(15, 'h')).width();
 		accountsView->setMinimumWidth(w + accountsView->columnWidth(BUDGET_COLUMN) + accountsView->columnWidth(CHANGE_COLUMN) + accountsView->columnWidth(VALUE_COLUMN));
-		//QDesktopWidget desktop;
-		//resize(QSize(750, 650).boundedTo(desktop.availableGeometry(this).size()));
 	}
 
 
@@ -3113,6 +3122,11 @@ void Eqonomize::setBudgetPeriod() {
 	QVBoxLayout *box1 = new QVBoxLayout(dialog);
 	QGridLayout *layout = new QGridLayout();
 	layout->addWidget(new QLabel(tr("First day in budget month:"), dialog), 0, 0);
+	QButtonGroup *group = new QButtonGroup(dialog);
+	QRadioButton *dayButton = new QRadioButton(dialog);
+	group->addButton(dayButton);
+	dayButton->setChecked(budget->budgetWeek() == 0);
+	layout->addWidget(dayButton, 0, 1);
 	QComboBox *monthlyDayCombo = new QComboBox(dialog);
 	monthlyDayCombo->addItem(tr("1st"));
 	monthlyDayCombo->addItem(tr("2nd"));
@@ -3147,16 +3161,44 @@ void Eqonomize::setBudgetPeriod() {
 	monthlyDayCombo->addItem(tr("3rd Last"));
 	monthlyDayCombo->addItem(tr("4th Last"));
 	monthlyDayCombo->addItem(tr("5th Last"));
+	monthlyDayCombo->setEnabled(budget->budgetWeek() == 0);
 	if(budget->budgetDay() > 0) monthlyDayCombo->setCurrentIndex(budget->budgetDay() - 1);
 	else if(budget->budgetDay() > -5) monthlyDayCombo->setCurrentIndex(28 - budget->budgetDay());
-	layout->addWidget(monthlyDayCombo, 0, 1);
-	layout->addWidget(new QLabel(tr("First month in budget year:"), dialog), 1, 0);
+	layout->addWidget(monthlyDayCombo, 0, 2, 1, 2);
+	QRadioButton *weekButton = new QRadioButton(dialog);
+	group->addButton(weekButton);
+	weekButton->setChecked(budget->budgetWeek() != 0);
+	layout->addWidget(weekButton, 1, 1);
+	QComboBox *weekCombo = new QComboBox(dialog);
+	weekCombo->addItem(tr("1st"));
+	weekCombo->addItem(tr("2nd"));
+	weekCombo->addItem(tr("3rd"));
+	weekCombo->addItem(tr("4th"));
+	weekCombo->addItem(tr("Last"));
+	weekCombo->addItem(tr("2nd Last"));
+	weekCombo->addItem(tr("3rd Last"));
+	weekCombo->setEnabled(budget->budgetWeek() != 0);
+	if(budget->budgetWeek() > 0) weekCombo->setCurrentIndex(budget->budgetWeek() - 1);
+	else if(budget->budgetWeek() < 0) weekCombo->setCurrentIndex(3 - budget->budgetWeek());
+	else weekCombo->setCurrentIndex(0);
+	layout->addWidget(weekCombo, 1, 2);
+	QComboBox *weekdayCombo = new QComboBox(dialog);
+	for(int i = 0; i < 7; ++i ) {
+		weekdayCombo->addItem(QLocale().standaloneDayName(i + 1, QLocale::LongFormat));
+	}
+	weekdayCombo->setCurrentIndex(budget->budgetWeek() == 0 ? 0 : budget->budgetDay() - 1);
+	weekdayCombo->setEnabled(budget->budgetWeek() != 0);
+	layout->addWidget(weekdayCombo, 1, 3);
+	connect(dayButton, SIGNAL(toggled(bool)), monthlyDayCombo, SLOT(setEnabled(bool)));
+	connect(weekButton, SIGNAL(toggled(bool)), weekCombo, SLOT(setEnabled(bool)));
+	connect(weekButton, SIGNAL(toggled(bool)), weekdayCombo, SLOT(setEnabled(bool)));
+	layout->addWidget(new QLabel(tr("First month in budget year:"), dialog), 2, 0);
 	QComboBox *yearlyMonthCombo = new QComboBox(dialog);
 	for(int i = 1; i <= 12; i++) {
 		yearlyMonthCombo->addItem(QLocale().monthName(i, QLocale::LongFormat));
 	}
 	yearlyMonthCombo->setCurrentIndex(budget->budgetMonth() - 1);
-	layout->addWidget(yearlyMonthCombo, 1, 1);
+	layout->addWidget(yearlyMonthCombo, 2, 1, 1, 2);
 	box1->addLayout(layout);
 	QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Cancel | QDialogButtonBox::Ok, Qt::Horizontal, dialog);
 	buttonBox->button(QDialogButtonBox::Ok)->setDefault(true);
@@ -3166,12 +3208,35 @@ void Eqonomize::setBudgetPeriod() {
 	connect(buttonBox->button(QDialogButtonBox::Ok), SIGNAL(clicked()), dialog, SLOT(accept()));
 	box1->addWidget(buttonBox);
 	if(dialog->exec() == QDialog::Accepted) {
-		budget->setBudgetDay(monthlyDayCombo->currentIndex() >= 28 ? -(monthlyDayCombo->currentIndex() - 28) : monthlyDayCombo->currentIndex() + 1);
+		if(weekButton->isChecked()) {
+			budget->setBudgetDay(weekdayCombo->currentIndex() + 1);
+			budget->setBudgetWeek(weekCombo->currentIndex() >= 4 ? -(weekCombo->currentIndex() - 3) : weekCombo->currentIndex() + 1);
+		} else {
+			budget->setBudgetWeek(0);
+			budget->setBudgetDay(monthlyDayCombo->currentIndex() >= 28 ? -(monthlyDayCombo->currentIndex() - 28) : monthlyDayCombo->currentIndex() + 1);
+		}
 		budget->setBudgetMonth(yearlyMonthCombo->currentIndex() + 1);
 		updateBudgetDay();
 		setModified(true);
 	}
 	dialog->deleteLater();
+}
+
+void Eqonomize::resetColumnWidths() {
+	updateColumnWidths();
+	expensesWidget->updateColumnWidths();
+	incomesWidget->updateColumnWidths();
+	transfersWidget->updateColumnWidths();
+	if(ledgers.isEmpty()) {
+		LedgerDialog *dialog = new LedgerDialog((AssetsAccount*) NULL, budget, this, tr("Ledger"), b_extra);
+		dialog->updateColumnWidths();
+		dialog->saveConfig();
+		dialog->deleteLater();
+	} else {
+		for(int i = 0; i < ledgers.count(); i++) {
+			ledgers.at(i)->updateColumnWidths();
+		}
+	}
 }
 
 void Eqonomize::selectFont() {
@@ -3183,6 +3248,93 @@ void Eqonomize::selectFont() {
 		settings.beginGroup("GeneralOptions");
 		settings.setValue("font", font.toString());
 		settings.endGroup();
+		resetColumnWidths();
+	}
+}
+
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+void Eqonomize::updateColors() {
+	expensesWidget->filterTransactions();
+	incomesWidget->filterTransactions();
+	transfersWidget->filterTransactions();
+	filterAccounts();
+	updateScheduledTransactions();
+	updateSecurities();
+	emit transactionsModified();
+}
+void Eqonomize::changeEvent(QEvent *e) {
+	if(e->type() == QEvent::PaletteChange || e->type() == QEvent::ApplicationPaletteChange) {
+		QTimer::singleShot(100, this, SLOT(updateColors()));
+	}
+}
+#endif
+
+void Eqonomize::setDarkMode(bool b) {
+	updatePalette(b);
+	expensesWidget->filterTransactions();
+	incomesWidget->filterTransactions();
+	transfersWidget->filterTransactions();
+	filterAccounts();
+	updateScheduledTransactions();
+	updateSecurities();
+	emit transactionsModified();
+	QSettings settings;
+	settings.beginGroup("GeneralOptions");
+	settings.setValue("darkMode", b);
+	settings.endGroup();
+}
+
+void Eqonomize::updatePalette(bool dark_mode) {
+	if(dark_mode) {
+#if defined _WIN32 && (QT_VERSION < QT_VERSION_CHECK(6, 5, 0))
+		QApplication::setStyle(QStyleFactory::create("Fusion"));
+#endif
+		QPalette p;
+		p.setColor(QPalette::Active, QPalette::Window, QColor(42, 46, 50));
+		p.setColor(QPalette::Active, QPalette::WindowText, QColor(252, 252, 252));
+		p.setColor(QPalette::Active, QPalette::Base, QColor(27, 30, 32));
+		p.setColor(QPalette::Active, QPalette::AlternateBase, QColor(35, 38, 41));
+		p.setColor(QPalette::Active, QPalette::ToolTipBase, QColor(49, 54, 59));
+		p.setColor(QPalette::Active, QPalette::ToolTipText, QColor(252, 252, 252));
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 12, 0))
+		p.setColor(QPalette::Active, QPalette::PlaceholderText, QColor(161, 169, 177));
+#endif
+		p.setColor(QPalette::Active, QPalette::Text, QColor(252, 252, 252));
+		p.setColor(QPalette::Active, QPalette::Button, QColor(49, 54, 59));
+		p.setColor(QPalette::Active, QPalette::ButtonText, QColor(252, 252, 252));
+		p.setColor(QPalette::Active, QPalette::BrightText, QColor(39, 174, 96));
+		p.setColor(QPalette::Inactive, QPalette::Window, QColor(42, 46, 50));
+		p.setColor(QPalette::Inactive, QPalette::WindowText, QColor(252, 252, 252));
+		p.setColor(QPalette::Inactive, QPalette::Base, QColor(27, 30, 32));
+		p.setColor(QPalette::Inactive, QPalette::AlternateBase, QColor(35, 38, 41));
+		p.setColor(QPalette::Inactive, QPalette::ToolTipBase, QColor(49, 54, 59));
+		p.setColor(QPalette::Inactive, QPalette::ToolTipText, QColor(252, 252, 252));
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 12, 0))
+		p.setColor(QPalette::Inactive, QPalette::PlaceholderText, QColor(161, 169, 177));
+#endif
+		p.setColor(QPalette::Inactive, QPalette::Text, QColor(252, 252, 252));
+		p.setColor(QPalette::Inactive, QPalette::Button, QColor(49, 54, 59));
+		p.setColor(QPalette::Inactive, QPalette::ButtonText, QColor(252, 252, 252));
+		p.setColor(QPalette::Inactive, QPalette::BrightText, QColor(39, 174, 96));
+		p.setColor(QPalette::Disabled, QPalette::Window, QColor(42, 46, 50));
+		p.setColor(QPalette::Disabled, QPalette::WindowText, QColor(101, 101, 101));
+		p.setColor(QPalette::Disabled, QPalette::Base, QColor(27, 30, 32));
+		p.setColor(QPalette::Disabled, QPalette::AlternateBase, QColor(35, 38, 41));
+		p.setColor(QPalette::Disabled, QPalette::ToolTipBase, QColor(49, 54, 59));
+		p.setColor(QPalette::Disabled, QPalette::ToolTipText, QColor(252, 252, 252));
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 12, 0))
+		p.setColor(QPalette::Disabled, QPalette::PlaceholderText, QColor(161, 169, 177));
+#endif
+		p.setColor(QPalette::Disabled, QPalette::Text, QColor(101, 101, 101));
+		p.setColor(QPalette::Disabled, QPalette::Button, QColor(47, 52, 56));
+		p.setColor(QPalette::Disabled, QPalette::ButtonText,QColor(101, 101, 101));
+		p.setColor(QPalette::Disabled, QPalette::BrightText, QColor(39, 174, 96));
+		QApplication::setPalette(p);
+	} else {
+#if defined _WIN32 && (QT_VERSION < QT_VERSION_CHECK(6, 5, 0))
+		QApplication::setStyle(QStyleFactory::create("windowsvista"));
+#endif
+		QApplication::setPalette(QApplication::style()->standardPalette());
 	}
 }
 
@@ -4657,7 +4809,7 @@ void Eqonomize::popupScheduleHeaderMenu(const QPoint &p) {
 			}
 		}
 		SeparatorRightAlignValues = scheduleHeaderPopupMenu->addSeparator();
-		ActionRightAlignValues = scheduleHeaderPopupMenu->addAction(tr("Align right"));
+		ActionRightAlignValues = scheduleHeaderPopupMenu->addAction(tr("Right align"));
 		ActionRightAlignValues->setCheckable(true);
 		connect(ActionRightAlignValues, SIGNAL(toggled(bool)), this, SLOT(valueAlignmentUpdated(bool)));
 	}
@@ -4665,7 +4817,6 @@ void Eqonomize::popupScheduleHeaderMenu(const QPoint &p) {
 	SeparatorRightAlignValues->setVisible(c == 3);
 	ActionRightAlignValues->setVisible(c == 3);
 	if(c == 3) {
-		QSettings settings;
 		ActionRightAlignValues->blockSignals(true);
 		ActionRightAlignValues->setChecked(right_align_values);
 		ActionRightAlignValues->blockSignals(false);
@@ -5488,6 +5639,16 @@ void Eqonomize::popupAccountsMenu(const QPoint &p) {
 
 }
 
+void Eqonomize::openLedger(AssetsAccount *account, bool reconcile) {
+	LedgerDialog *dialog = new LedgerDialog(account, budget, this, tr("Ledger"), b_extra, reconcile);
+	dialog->show();
+	ledgers << dialog;
+	connect(dialog, SIGNAL(destroyed(QObject*)), this, SLOT(ledgerClosed(QObject*)));
+	connect(this, SIGNAL(timeToSaveConfig()), dialog, SLOT(saveConfig()));
+}
+void Eqonomize::ledgerClosed(QObject *o) {
+	ledgers.removeAll((LedgerDialog*) o);
+}
 void Eqonomize::showLedger() {
 	QTreeWidgetItem *i = selectedItem(accountsView);
 	Account *account = NULL;
@@ -5495,9 +5656,7 @@ void Eqonomize::showLedger() {
 		account = account_items[i];
 		if(account && account->type() != ACCOUNT_TYPE_ASSETS) account = NULL;
 	}
-	LedgerDialog *dialog = new LedgerDialog((AssetsAccount*) account, budget, this, tr("Ledger"), b_extra);
-	dialog->show();
-	connect(this, SIGNAL(timeToSaveConfig()), dialog, SLOT(saveConfig()));
+	openLedger((AssetsAccount*) account);
 }
 void Eqonomize::reconcileAccount() {
 	QTreeWidgetItem *i = selectedItem(accountsView);
@@ -5506,9 +5665,7 @@ void Eqonomize::reconcileAccount() {
 		account = account_items[i];
 		if(account && account->type() != ACCOUNT_TYPE_ASSETS) account = NULL;
 	}
-	LedgerDialog *dialog = new LedgerDialog((AssetsAccount*) account, budget, this, tr("Ledger"), b_extra, true);
-	dialog->show();
-	connect(this, SIGNAL(timeToSaveConfig()), dialog, SLOT(saveConfig()));
+	openLedger((AssetsAccount*) account, true);
 }
 void Eqonomize::showAccountTransactions(bool b) {
 	QTreeWidgetItem *i = selectedItem(accountsView);
@@ -5590,9 +5747,7 @@ void Eqonomize::showAccountTransactions(bool b) {
 		} else if(((AssetsAccount*) account)->isSecurities()) {
 			tabs->setCurrentIndex(SECURITIES_PAGE_INDEX);
 		} else {
-			LedgerDialog *dialog = new LedgerDialog((AssetsAccount*) account, budget, this, tr("Ledger"), b_extra);
-			dialog->show();
-			connect(this, SIGNAL(timeToSaveConfig()), dialog, SLOT(saveConfig()));
+			openLedger((AssetsAccount*) account);
 		}
 	}
 }
@@ -6429,7 +6584,7 @@ void Eqonomize::checkAvailableVersion_readdata() {
 		}
 	}
 	if(b) {
-		QMessageBox::information(this, tr("New version available"), tr("A new version of %1 is available.<br><br>You can get version %2 at %3.").arg("Eqonomize!").arg(QString(sbuffer)).arg("<a href=\"http://eqonomize.github.io/downloads.html\">eqonomize.github.io</a>"));
+		QMessageBox::information(this, tr("New version available"), tr("A new version of %1 is available.<br><br>You can get version %2 at %3.").arg("Eqonomize!").arg(QString(sbuffer)).arg("<a href=\"https://eqonomize.github.io/downloads.html\">eqonomize.github.io</a>"));
 		settings.setValue("lastVersionFound", sbuffer);
 	}
 }
@@ -6505,24 +6660,36 @@ void Eqonomize::updateExchangeRates(bool do_currencies_modified) {
 			settings.setValue("lastExchangeRatesUpdate", QDate::currentDate().toString(Qt::ISODate));
 			updateExchangeRatesProgressDialog->setValue(1);
 			QEventLoop loop2;
-			//updateExchangeRatesReply = budget->nam.get(QNetworkRequest(QUrl("http://www.mycurrency.net/service/rates")));
-			updateExchangeRatesReply = budget->nam.get(QNetworkRequest(QUrl("https://www.mycurrency.net/=EU")));
+			updateExchangeRatesReply = budget->nam.get(QNetworkRequest(QUrl("https://api.exchangerate.host/latest")));
 			connect(updateExchangeRatesReply, SIGNAL(finished()), &loop2, SLOT(quit()));
 			loop2.exec();
+			QString errors;
+			int b_error = false;
 			if(updateExchangeRatesReply->error() == QNetworkReply::OperationCanceledError) {
 				//canceled by user
 				updateExchangeRatesProgressDialog->reset();
 			} else if(updateExchangeRatesReply->error() != QNetworkReply::NoError) {
 				updateExchangeRatesProgressDialog->reset();
-				//QMessageBox::critical(this, tr("Error"), tr("Failed to download exchange rates from %1: %2.").arg("http://www.mycurrency.net/service/rates").arg(updateExchangeRatesReply->errorString()));
-				QMessageBox::critical(this, tr("Error"), tr("Failed to download exchange rates from %1: %2.").arg("https://www.mycurrency.net").arg(updateExchangeRatesReply->errorString()));
+				errors = updateExchangeRatesReply->errorString();
+				b_error = 1;
 				updateExchangeRatesReply->abort();
 			} else {
-
-				//QString errors = budget->loadMyCurrencyNetData(updateExchangeRatesReply->readAll());
-				QString errors = budget->loadMyCurrencyNetHtml(updateExchangeRatesReply->readAll());
-				if(!errors.isEmpty()) {
-					QMessageBox::critical(this, tr("Error"), tr("Error reading data from %1: %2.").arg("http://www.mycurrency.net/service/rates").arg(errors));
+				errors = budget->loadExchangerateHostData(updateExchangeRatesReply->readAll());
+				if(!errors.isEmpty()) b_error = 2;
+			}
+			if(b_error) {
+				QEventLoop loop3;
+				updateExchangeRatesReply = budget->nam.get(QNetworkRequest(QUrl("https://www.mycurrency.net/FR.json")));
+				//updateExchangeRatesReply = budget->nam.get(QNetworkRequest(QUrl("https://www.mycurrency.net/=EU")));
+				connect(updateExchangeRatesReply, SIGNAL(finished()), &loop3, SLOT(quit()));
+				loop3.exec();
+				if(updateExchangeRatesReply->error() == QNetworkReply::OperationCanceledError) {
+					//canceled by user
+					updateExchangeRatesProgressDialog->reset();
+				} else if(updateExchangeRatesReply->error() != QNetworkReply::NoError || !budget->loadMyCurrencyNetData(updateExchangeRatesReply->readAll()).isEmpty()) {
+					if(updateExchangeRatesReply->error() != QNetworkReply::NoError) updateExchangeRatesReply->abort();
+					if(b_error == 1) QMessageBox::critical(this, tr("Error"), tr("Failed to download exchange rates from %1: %2.").arg("https://api.exchangerate.host/latest").arg(errors));
+					else QMessageBox::critical(this, tr("Error"), tr("Error reading data from %1: %2.").arg("https://api.exchangerate.host/latest").arg(errors));
 				}
 			}
 			QString error = budget->saveCurrencies();
@@ -6627,7 +6794,7 @@ void Eqonomize::setMainCurrency() {
 	for(CurrencyList<Currency*>::const_iterator it = budget->currencies.constBegin(); it != budget->currencies.constEnd(); ++it) {
 		Currency *currency = *it;
 		if(!currency->name(false).isEmpty()) {
-			setMainCurrencyCombo->addItem(QIcon(":/data/flags/" + currency->code() + ".png"), QString("%2 (%1)").arg(qApp->translate("currencies.xml", qPrintable(currency->name()))).arg(currency->code()));
+			setMainCurrencyCombo->addItem(QIcon(":/data/flags/" + currency->code() + ".png"), QString("%2 (%1)").arg(qApp->translate("currencies.xml", qUtf8Printable(currency->name()))).arg(currency->code()));
 		} else {
 			setMainCurrencyCombo->addItem(currency->code());
 		}
@@ -6723,8 +6890,18 @@ void Eqonomize::showOverTimeReport() {
 		QSettings settings;
 		QSize dialog_size = settings.value("OverTimeReport/size", QSize()).toSize();
 		if(!dialog_size.isValid()) {
-			QDesktopWidget desktop;
-			dialog_size = QSize(750, 650).boundedTo(desktop.availableGeometry(this).size());
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+#	if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+			QScreen *scr = screen();
+#	else
+			QScreen *scr = QGuiApplication::screenAt(pos());
+#	endif
+			if(!scr) scr = QGuiApplication::primaryScreen();
+			QRect rect = scr->availableGeometry();
+#else
+			QRect rect = QApplication::desktop()->availableGeometry(this);
+#endif
+			dialog_size = QSize(750, 650).boundedTo(rect.size());
 		}
 		otrDialog->resize(dialog_size);
 		connect(this, SIGNAL(tagsModified()), ((OverTimeReportDialog*) otrDialog)->report, SLOT(updateTags()));
@@ -6746,8 +6923,18 @@ void Eqonomize::showCategoriesComparisonReport() {
 		QSettings settings;
 		QSize dialog_size = settings.value("CategoriesComparisonReport/size", QSize()).toSize();
 		if(!dialog_size.isValid()) {
-			QDesktopWidget desktop;
-			dialog_size = QSize(750, 670).boundedTo(desktop.availableGeometry(this).size());
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+#	if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+			QScreen *scr = screen();
+#	else
+			QScreen *scr = QGuiApplication::screenAt(pos());
+#	endif
+			if(!scr) scr = QGuiApplication::primaryScreen();
+			QRect rect = scr->availableGeometry();
+#else
+			QRect rect = QApplication::desktop()->availableGeometry(this);
+#endif
+			dialog_size = QSize(750, 670).boundedTo(rect.size());
 		}
 		ccrDialog->resize(dialog_size);
 		connect(this, SIGNAL(tagsModified()), ((CategoriesComparisonReportDialog*) ccrDialog)->report, SLOT(updateTags()));
@@ -6769,8 +6956,18 @@ void Eqonomize::showOverTimeChart() {
 		QSettings settings;
 		QSize dialog_size = settings.value("OverTimeChart/size", QSize()).toSize();
 		if(!dialog_size.isValid()) {
-			QDesktopWidget desktop;
-			dialog_size = QSize(850, b_extra ? 750 : 730).boundedTo(desktop.availableGeometry(this).size());
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+#	if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+			QScreen *scr = screen();
+#	else
+			QScreen *scr = QGuiApplication::screenAt(pos());
+#	endif
+			if(!scr) scr = QGuiApplication::primaryScreen();
+			QRect rect = scr->availableGeometry();
+#else
+			QRect rect = QApplication::desktop()->availableGeometry(this);
+#endif
+			dialog_size = QSize(850, b_extra ? 750 : 730).boundedTo(rect.size());
 		}
 		otcDialog->resize(dialog_size);
 		connect(this, SIGNAL(tagsModified()), ((OverTimeChartDialog*) otcDialog)->chart, SLOT(updateTags()));
@@ -6793,8 +6990,18 @@ void Eqonomize::showCategoriesComparisonChart() {
 		QSettings settings;
 		QSize dialog_size = settings.value("CategoriesComparisonChart/size", QSize()).toSize();
 		if(!dialog_size.isValid()) {
-			QDesktopWidget desktop;
-			dialog_size = QSize(750, 700).boundedTo(desktop.availableGeometry(this).size());
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+#	if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+			QScreen *scr = screen();
+#	else
+			QScreen *scr = QGuiApplication::screenAt(pos());
+#	endif
+			if(!scr) scr = QGuiApplication::primaryScreen();
+			QRect rect = scr->availableGeometry();
+#else
+			QRect rect = QApplication::desktop()->availableGeometry(this);
+#endif
+			dialog_size = QSize(750, 700).boundedTo(rect.size());
 		}
 		cccDialog->resize(dialog_size);
 		connect(this, SIGNAL(accountsModified()), ((CategoriesComparisonChartDialog*) cccDialog)->chart, SLOT(updateAccounts()));
@@ -6814,7 +7021,9 @@ bool Eqonomize::exportScheduleList(QTextStream &outf, int fileformat) {
 
 	switch(fileformat) {
 		case 'h': {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 			outf.setCodec("UTF-8");
+#endif
 			outf << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << '\n';
 			outf << "<html>" << '\n';
 			outf << "\t<head>" << '\n';
@@ -6896,7 +7105,9 @@ bool Eqonomize::exportSecuritiesList(QTextStream &outf, int fileformat) {
 
 	switch(fileformat) {
 		case 'h': {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 			outf.setCodec("UTF-8");
+#endif
 			outf << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << '\n';
 			outf << "<html>" << '\n';
 			outf << "\t<head>" << '\n';
@@ -6981,7 +7192,9 @@ bool Eqonomize::exportAccountsList(QTextStream &outf, int fileformat) {
 
 	switch(fileformat) {
 		case 'h': {
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 			outf.setCodec("UTF-8");
+#endif
 			outf << "<!DOCTYPE HTML PUBLIC \"-//W3C//DTD HTML 4.01 Transitional//EN\" \"http://www.w3.org/TR/html4/loose.dtd\">" << '\n';
 			outf << "<html>" << '\n';
 			outf << "\t<head>" << '\n';
@@ -7572,7 +7785,7 @@ void Eqonomize::setupActions() {
 	fileMenu->addSeparator();
 	QList<QKeySequence> keySequences;
 	keySequences << QKeySequence(QKeySequence::Quit);
-	if(keySequences.last() != QKeySequence(Qt::CTRL+Qt::Key_Q)) keySequences << QKeySequence(Qt::CTRL+Qt::Key_Q);
+	if(keySequences.last() != QKeySequence(Qt::CTRL | Qt::Key_Q)) keySequences << QKeySequence(Qt::CTRL | Qt::Key_Q);
 	NEW_ACTION_3(ActionQuit, tr("&Quit"), "application-exit", keySequences, this, SLOT(close()), "application_quit", fileMenu);
 
 	NEW_ACTION_NOMENU(ActionAddAccount, tr("Add Account…"), "document-new", 0, this, SLOT(addAccount()), "add_account");
@@ -7601,13 +7814,13 @@ void Eqonomize::setupActions() {
 	NEW_ACTION(ActionShowLedger, tr("Show Ledger"), "eqz-ledger", 0, this, SLOT(showLedger()), "show_ledger", accountsMenu);
 	accountsToolbar->addAction(ActionShowLedger);
 
-	NEW_ACTION(ActionNewExpense, tr("New Expense…"), "eqz-expense", Qt::CTRL+Qt::Key_E, this, SLOT(newScheduledExpense()), "new_expense", transactionsMenu);
+	NEW_ACTION(ActionNewExpense, tr("New Expense…"), "eqz-expense", Qt::CTRL | Qt::Key_E, this, SLOT(newScheduledExpense()), "new_expense", transactionsMenu);
 	transactionsToolbar->addAction(ActionNewExpense);
-	NEW_ACTION(ActionNewIncome, tr("New Income…"), "eqz-income", Qt::CTRL+Qt::Key_I, this, SLOT(newScheduledIncome()), "new_income", transactionsMenu);
+	NEW_ACTION(ActionNewIncome, tr("New Income…"), "eqz-income", Qt::CTRL | Qt::Key_I, this, SLOT(newScheduledIncome()), "new_income", transactionsMenu);
 	transactionsToolbar->addAction(ActionNewIncome);
-	NEW_ACTION(ActionNewTransfer, tr("New Transfer…"), "eqz-transfer", Qt::CTRL+Qt::Key_T, this, SLOT(newScheduledTransfer()), "new_transfer", transactionsMenu);
+	NEW_ACTION(ActionNewTransfer, tr("New Transfer…"), "eqz-transfer", Qt::CTRL | Qt::Key_T, this, SLOT(newScheduledTransfer()), "new_transfer", transactionsMenu);
 	transactionsToolbar->addAction(ActionNewTransfer);
-	NEW_ACTION(ActionNewMultiItemTransaction, tr("New Split Transaction…"), "eqz-split-transaction", Qt::CTRL+Qt::Key_W, this, SLOT(newMultiItemTransaction()), "new_multi_item_transaction", transactionsMenu);
+	NEW_ACTION(ActionNewMultiItemTransaction, tr("New Split Transaction…"), "eqz-split-transaction", Qt::CTRL | Qt::Key_W, this, SLOT(newMultiItemTransaction()), "new_multi_item_transaction", transactionsMenu);
 	transactionsToolbar->addAction(ActionNewMultiItemTransaction);
 	NEW_ACTION(ActionNewMultiAccountExpense, tr("New Expense with Multiple Payments…"), "eqz-expense", 0, this, SLOT(newMultiAccountExpense()), "new_multi_account_expense", transactionsMenu);
 	NEW_ACTION_NOMENU(ActionNewRefund, tr("Refund…"), "eqz-income", 0, this, SLOT(newRefund()), "new_refund");
@@ -7731,8 +7944,19 @@ void Eqonomize::setupActions() {
 
 	settingsMenu->addSeparator();
 
+	NEW_ACTION_2(ActionSelectFont, tr("Reset Column Widths"), 0, this, SLOT(resetColumnWidths()), "reset_column_widths", settingsMenu);
+	ActionSelectFont->setIcon(LOAD_ICON_APP("view-refresh"));
+
+	settingsMenu->addSeparator();
+
 	NEW_ACTION_2(ActionSelectFont, tr("Select Font…"), 0, this, SLOT(selectFont()), "select_font", settingsMenu);
 	ActionSelectFont->setIcon(LOAD_ICON_APP("preferences-desktop-font"));
+
+#if !defined _WIN32 || (QT_VERSION < QT_VERSION_CHECK(6, 5, 0))
+	NEW_TOGGLE_ACTION(ActionDarkMode, tr("Dark Mode"), 0, this, SLOT(setDarkMode(bool)), "dark_mode", settingsMenu);
+	QSettings settings;
+	ActionDarkMode->setChecked(settings.value("GeneralOptions/darkMode", false).toBool());
+#endif
 
 	QMenu *langMenu = settingsMenu->addMenu(LOAD_ICON_APP("preferences-desktop-locale"), tr("Language"));
 	ActionSelectLang = new QActionGroup(this);
@@ -7822,6 +8046,8 @@ void Eqonomize::setupActions() {
 	ActionSplitUpTransaction->setEnabled(false);
 	ActionEditTimestamp->setEnabled(false);
 	ActionTags->setEnabled(false);
+	ActionLinks->setEnabled(false);
+	ActionCreateLink->setEnabled(false);
 	ActionEditScheduledTransaction->setEnabled(false);
 	ActionDeleteScheduledTransaction->setEnabled(false);
 	ActionNewRefund->setEnabled(false);
@@ -7933,7 +8159,18 @@ void Eqonomize::showHelp() {
 		QDialogButtonBox *buttonBox = new QDialogButtonBox(QDialogButtonBox::Close);
 		connect(buttonBox->button(QDialogButtonBox::Close), SIGNAL(clicked()), helpDialog, SLOT(reject()));
 		box1->addWidget(buttonBox);
-		QSize helpSize = QDesktopWidget().availableGeometry(this).size();
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
+#	if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+		QScreen *scr = screen();
+#	else
+		QScreen *scr = QGuiApplication::screenAt(pos());
+#	endif
+		if(!scr) scr = QGuiApplication::primaryScreen();
+		QRect rect = scr->availableGeometry();
+#else
+		QRect rect = QApplication::desktop()->availableGeometry(this);
+#endif
+		QSize helpSize = rect.size();
 		helpSize.setHeight(helpSize.height() * 0.85);
 		helpSize.setWidth(helpSize.height() * 1.2);
 		helpDialog->resize(helpSize);
@@ -7946,7 +8183,7 @@ void Eqonomize::reportBug() {
 	QDesktopServices::openUrl(QUrl("https://github.com/Eqonomize/Eqonomize/issues/new"));
 }
 void Eqonomize::showAbout() {
-	QMessageBox::about(this, tr("About %1").arg(qApp->applicationDisplayName()), QString("<font size=+2><b>%1 v1.5.2</b></font><br><font size=+1>%2</font><br><<font size=+1><i><a href=\"http://eqonomize.github.io/\">http://eqonomize.github.io/</a></i></font><br><br>Copyright © 2006-2008, 2014, 2016-2020 Hanna Knutsson<br>%3").arg(qApp->applicationDisplayName()).arg(tr("A personal accounting program")).arg(tr("License: GNU General Public License Version 3")));
+	QMessageBox::about(this, tr("About %1").arg(qApp->applicationDisplayName()), QString("<font size=+2><b>%1 v1.5.5</b></font><br><font size=+1>%2</font><br><<font size=+1><i><a href=\"https://eqonomize.github.io/\">https://eqonomize.github.io/</a></i></font><br><br>Copyright © 2006-2008, 2014, 2016-2023 Hanna Knutsson<br>%3").arg(qApp->applicationDisplayName()).arg(tr("A personal accounting program")).arg(tr("License: GNU General Public License Version 3")));
 }
 void Eqonomize::showAboutQt() {
 	QMessageBox::aboutQt(this);
@@ -8075,7 +8312,7 @@ void Eqonomize::onActivateRequested(const QStringList &arguments, const QString 
 void Eqonomize::saveOptions() {
 	QSettings settings;
 	settings.beginGroup("GeneralOptions");
-	settings.setValue("version", 141);
+	settings.setValue("version", 155);
 	settings.setValue("lastURL", current_url.url());
 	if(ActionSelectBackupFrequency->checkedAction() == ABFNever) {settings.setValue("backupFrequency", BACKUP_NEVER);}
 	else if(ActionSelectBackupFrequency->checkedAction() == ABFDaily) {settings.setValue("backupFrequency", BACKUP_DAILY);}
@@ -8113,6 +8350,31 @@ void Eqonomize::saveOptions() {
 	emit timeToSaveConfig();
 }
 
+void Eqonomize::updateAccountColumnWidths() {
+	setColumnTextWidth(accountsView, BUDGET_COLUMN, tr("%2 of %1", "%1: budget; %2: remaining budget").arg(budget->formatMoney(99999999.99)).arg(budget->formatMoney(99999999.99)));
+	setColumnMoneyWidth(accountsView, CHANGE_COLUMN, budget, 999999999999.99);
+	setColumnMoneyWidth(accountsView, VALUE_COLUMN, budget, 999999999999.99);
+}
+void Eqonomize::updateColumnWidths() {
+	updateAccountColumnWidths();
+	setColumnStrlenWidth(securitiesView, 0, 25);
+	setColumnMoneyWidth(securitiesView, 1, budget);
+	setColumnValueWidth(securitiesView, 2, 999999.99, 4, budget);
+	setColumnMoneyWidth(securitiesView, 3, budget, 9999999.99, 4);
+	setColumnMoneyWidth(securitiesView, 4, budget);
+	setColumnMoneyWidth(securitiesView, 5, budget);
+	setColumnValueWidth(securitiesView, 6, 99.99, 2, budget);
+	setColumnStrlenWidth(securitiesView, 7, 10);
+	setColumnStrlenWidth(securitiesView, 8, 10);
+	setColumnDateWidth(scheduleView, 0);
+	setColumnStrlenWidth(scheduleView, 1, 15);
+	setColumnStrlenWidth(scheduleView, 2, 25);
+	setColumnMoneyWidth(scheduleView, 3, budget);
+	setColumnStrlenWidth(scheduleView, 4, 15);
+	setColumnStrlenWidth(scheduleView, 5, 15);
+	setColumnStrlenWidth(scheduleView, 6, 15);
+	setColumnStrlenWidth(scheduleView, 7, 15);
+}
 
 void Eqonomize::readFileDependentOptions() {}
 void Eqonomize::readOptions() {
@@ -11063,8 +11325,32 @@ EqonomizeTreeWidget::EqonomizeTreeWidget(QWidget *parent) : QTreeWidget(parent) 
 	setAlternatingRowColors(true);
 	setExpandsOnDoubleClick(false);
 	setItemDelegate(new EqonomizeItemDelegate(this));
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+	QPalette p = palette();
+	QColor c = p.color(QPalette::Active, QPalette::Base);
+	if(c.lightness() > 0x7f) c = c.darker(105);
+	else c = c.lighter(125);
+	p.setColor(QPalette::Active, QPalette::AlternateBase, c);
+	p.setColor(QPalette::Inactive, QPalette::AlternateBase, c);
+	p.setColor(QPalette::Disabled, QPalette::AlternateBase, c);
+	setPalette(p);
+#endif
 }
 EqonomizeTreeWidget::EqonomizeTreeWidget() : QTreeWidget() {}
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+void EqonomizeTreeWidget::changeEvent(QEvent *e) {
+	if(e->type() == QEvent::PaletteChange || e->type() == QEvent::ApplicationPaletteChange) {
+		QPalette p = palette();
+		QColor c = p.color(QPalette::Active, QPalette::Base);
+		if(c.lightness() > 0x7f) c = c.darker(105);
+		else c = c.lighter(125);
+		p.setColor(QPalette::Active, QPalette::AlternateBase, c);
+		p.setColor(QPalette::Inactive, QPalette::AlternateBase, c);
+		p.setColor(QPalette::Disabled, QPalette::AlternateBase, c);
+		setPalette(p);
+	}
+}
+#endif
 void EqonomizeTreeWidget::keyPressEvent(QKeyEvent *e) {
 	if((e->key() == Qt::Key_Return || e->key() == Qt::Key_Enter) && currentItem()) {
 		emit returnPressed(currentItem());
@@ -11080,7 +11366,11 @@ void EqonomizeTreeWidget::keyPressEvent(QKeyEvent *e) {
 	QTreeWidget::keyPressEvent(e);
 }
 void EqonomizeTreeWidget::dropEvent(QDropEvent *event) {
+#if (QT_VERSION >= QT_VERSION_CHECK(6, 0, 0))
+	QTreeWidgetItem *target = itemAt(event->position().toPoint());
+#else
 	QTreeWidgetItem *target = itemAt(event->pos());
+#endif
 	if(!target) return;
 	DropIndicatorPosition dropPos = dropIndicatorPosition();
 	if(dropPos != OnItem) target = target->parent();

@@ -1,11 +1,92 @@
+2023-07-06  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Add option to reset column widths
+	* Reset column widths on font change
+	* Fix display of Unicode characters in currency names
+	* Use flag images with higher resolution
+
+2023-07-04  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Use exchangerate.host as secondary exchange rate source, with mycurrency.net as backup
+	* Use fusion style by default and use system setting for dark mode on Windows with Qt >= 6.5
+
+2023-06-19  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix set security share value for split transactions (null date where used)
+
+2023-06-01  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix custom font with gtk2 style
+
+2023-05-10  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix monthly total for categories divided in subcategories in categories comparison report
+
+2022-12-01  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix months between dates calculation when first month of budget year is not January
+
+2022-11-26  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Option to set weekday of nth week as first day of budget month
+
+2022-11-25  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Make text in statistics below lists selectable
+	* Add ignore duplicate transactions property to CSV import presets and fix initial state
+
+2022-09-11  Francisco Miguel Biete Banon <fbiete@gmail.com>
+
+	* Fix Qt 6 build, and remove compilation warnings
+
+2022-08-17  bgallois <benjamin@gallois.cc>
+
+	* Update French translation
+
+2022-07-26  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Add option to ignore duplicates to import CSV dialog
+	* Add option to list duplicate transactions in transaction list filter
+	* Fix initial links actions states (disable)
+
+2022-05-17  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix import CSV and import QIF dialogs (wizards) with dark mode on Windows
+
+2022-01-02  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix compilation errors with Qt 6
+
+2021-12-23  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Dark mode option in settings menu
+	* If category is empty in CSV file row, use "Uncategorized" as name
+	* Fix empty/missing category (in CSV file) error message
+
 2021-11-05  Hanna Knutsson <hanna.knutsson@protonmail.com>
 
 	* Add extra space between after right aligned values in lists
 	* Add option to left align values in lists
 
+2021-09-10  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix tab focus for dialog buttons
+
+2021-09-04  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix "Ignore duplicate transactions" for reinvested dividend when
+	  importing eqz file
+
+2021-09-03  Hanna Knutsson <hanna.knutsson@protonmail.com>
+
+	* Fix saving of scheduled reinvested dividend
+	* Disable join and edit actions when one of multiple selected
+	  transactions is a reinvested dividend
+
 2021-07-30  Hanna Knutsson <hanna.knutsson@protonmail.com>
 
-	* Fix importing of data format YYYYMMDD and improve support for six character date formats without separator
+	* Fix importing of data format YYYYMMDD and improve support for six
+	  character date formats without separator
 	* Use a multiple lines for comments field in dialogs
 	* Clear edit fields after modification of transaction in list
 	* Preserve position and current item after update of ledger
@@ -22,7 +103,8 @@
 2021-01-07  Hanna Knutsson <hanna.knutsson@protonmail.com>
 
 	* Fix handling parentheses when calculating expression in value entry
-	* Fix initial state of "Bank" entry when initial account type is not "Cash"
+	* Fix initial state of "Bank" entry when initial account type is not
+	  "Cash"
 
 2020-12-14  Hanna Knutsson <hanna.knutsson@protonmail.com>
 

@@ -67,6 +67,9 @@ extern QString last_document_directory;
 
 ImportCSVDialog::ImportCSVDialog(bool extra_parameters, Budget *budg, QWidget *parent) : QWizard(parent), b_extra(extra_parameters), budget(budg) {
 
+	QSettings settings;
+	if(settings.value("GeneralOptions/darkMode", false).toBool()) setWizardStyle(QWizard::ClassicStyle);
+
 	setWindowTitle(tr("Import CSV file"));
 	setModal(true);
 
@@ -108,9 +111,7 @@ ImportCSVDialog::ImportCSVDialog(bool extra_parameters, Budget *budg, QWidget *p
 	presetCombo = new QComboBox();
 	presetCombo->setMinimumContentsLength(20);
 	presetCombo->setEditable(false);
-	QSettings settings;
-	settings.beginGroup("GeneralOptions");
-	presets = settings.value("CSVPresets").toMap();
+	presets = settings.value("GeneralOptions/CSVPresets").toMap();
 	for(QMap<QString, QVariant>::const_iterator it = presets.constBegin(); it != presets.constEnd(); ++it) {
 		presetCombo->addItem(it.key());
 	}
@@ -370,6 +371,14 @@ ImportCSVDialog::ImportCSVDialog(bool extra_parameters, Budget *budg, QWidget *p
 	layout3->addLayout(layout3_cm, row, 0, 1, 5);
 	row++;
 
+	QHBoxLayout *layout3_id = new QHBoxLayout();
+	layout3_id->addStretch(1);
+	ignoreDuplicateTransactionsButton = new QCheckBox(tr("Ignore duplicate transactions"), page3);
+	ignoreDuplicateTransactionsButton->setChecked(false);
+	layout3_id->addWidget(ignoreDuplicateTransactionsButton);
+	layout3->addLayout(layout3_id, row, 0, 1, 5);
+	row++;
+
 	QHBoxLayout *layoutPreset2 = new QHBoxLayout();
 	layoutPreset2->addStretch(1);
 	savePresetButton = new QPushButton(tr("Save as preset…"), page3);
@@ -410,7 +419,11 @@ ImportCSVDialog::ImportCSVDialog(bool extra_parameters, Budget *budg, QWidget *p
 	connect(valueTagsButton, SIGNAL(toggled(bool)), valueTagsEdit, SLOT(setEnabled(bool)));
 	connect(columnCommentsButton, SIGNAL(toggled(bool)), columnCommentsEdit, SLOT(setEnabled(bool)));
 	connect(valueCommentsButton, SIGNAL(toggled(bool)), valueCommentsEdit, SLOT(setEnabled(bool)));
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+	connect(typeGroup, SIGNAL(idClicked(int)), this, SLOT(typeChanged(int)));
+#else
 	connect(typeGroup, SIGNAL(buttonClicked(int)), this, SLOT(typeChanged(int)));
+#endif
 	if(b_extra) {
 		connect(columnQuantityButton, SIGNAL(toggled(bool)), columnQuantityEdit, SLOT(setEnabled(bool)));
 		connect(valueQuantityButton, SIGNAL(toggled(bool)), valueQuantityEdit, SLOT(setEnabled(bool)));
@@ -440,7 +453,7 @@ void ImportCSVDialog::loadPreset(int index) {
 	s_preset = presetCombo->itemText(index);
 	if(!presets.contains(s_preset)) return;
 	QList<QVariant> preset = presets[s_preset].toList();
-	if(preset.count() < 26) return;
+	if(preset.count() < 4) return;
 	typeGroup->button(preset.at(0).toInt())->setChecked(true);
 	typeChanged(preset.at(0).toInt());
 	fileEdit->setText(preset.at(1).toString());
@@ -455,6 +468,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		delimiterEdit->setText(delimiter);
 	}
 	int i = 4;
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueDateButton->setChecked(true);
 		valueDateEdit->setDate(preset.at(i + 1).toDate());
@@ -463,6 +477,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		columnDateEdit->setValue(preset.at(i + 1).toInt());
 	}
 	i += 2;
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueDescriptionButton->setChecked(true);
 		valueDescriptionEdit->setText(preset.at(i + 1).toString());
@@ -471,6 +486,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		columnDescriptionEdit->setValue(preset.at(i + 1).toInt());
 	}
 	i += 2;
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueCostButton->setChecked(true);
 		valueCostEdit->setValue(preset.at(i + 1).toDouble());
@@ -479,6 +495,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		columnCostEdit->setValue(preset.at(i + 1).toInt());
 	}
 	i += 2;
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueValueButton->setChecked(true);
 		valueValueEdit->setValue(preset.at(i + 1).toDouble());
@@ -487,6 +504,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		columnValueEdit->setValue(preset.at(i + 1).toInt());
 	}
 	i += 2;
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueAC1Button->setChecked(true);
 		qlonglong id = preset.at(i + 1).toLongLong();
@@ -514,6 +532,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		columnAC1Edit->setValue(preset.at(i + 1).toInt());
 	}
 	i += 3;
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueAC2Button->setChecked(true);
 		qlonglong id = preset.at(i + 1).toLongLong();
@@ -531,6 +550,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		columnAC2Edit->setValue(preset.at(i + 1).toInt());
 	}
 	i += 2;
+	if(i >= preset.count()) return;
 	if(b_extra) {
 		if(preset.at(i).toBool()) {
 			valueQuantityButton->setChecked(true);
@@ -551,6 +571,7 @@ void ImportCSVDialog::loadPreset(int index) {
 	} else {
 		i += 4;
 	}
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueTagsButton->setChecked(true);
 		valueTagsEdit->setText(preset.at(i + 1).toString());
@@ -559,6 +580,7 @@ void ImportCSVDialog::loadPreset(int index) {
 		columnTagsEdit->setValue(preset.at(i + 1).toInt());
 	}
 	i += 2;
+	if(i >= preset.count()) return;
 	if(preset.at(i).toBool()) {
 		valueCommentsButton->setChecked(true);
 		valueCommentsEdit->setText(preset.at(i + 1).toString());
@@ -568,6 +590,8 @@ void ImportCSVDialog::loadPreset(int index) {
 	}
 	i += 2;
 	createMissingButton->setChecked(preset.at(i).toBool());
+	i++;
+	ignoreDuplicateTransactionsButton->setChecked(i < preset.count() && preset.at(i).toBool());
 }
 void ImportCSVDialog::savePreset() {
 	QDialog *dialog = new QDialog(this);
@@ -693,6 +717,7 @@ void ImportCSVDialog::savePreset() {
 			preset << columnCommentsEdit->value();
 		}
 		preset << createMissingButton->isChecked();
+		preset << ignoreDuplicateTransactionsButton->isChecked();
 		presets[s_preset] = preset;
 		if(presetEdit->currentIndex() >= 0) {
 			presetCombo->setCurrentIndex(presetEdit->currentIndex());
@@ -957,9 +982,9 @@ QDate readCSVDate(const QString &str, const QString &date_format, const QString 
 double readCSVValue(const QString &str, int value_format, bool *ok) {
 	QString str2 = str;
 	int l = (int) str2.length();
-	str2.replace(QLocale().negativeSign(), '-');
-	str2.replace(QLocale().positiveSign(), '+');
-	str2.replace(QChar(0x2212), '-');
+	str2.replace(QLocale().negativeSign(), "-");
+	str2.replace(QLocale().positiveSign(), "+");
+	str2.replace(QChar(0x2212), "-");
 	if(value_format == 2) {
 		str2.replace(".", "");
 		str2.replace(",", ".");
@@ -1221,6 +1246,7 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 		}
 	}
 	bool create_missing = createMissingButton->isChecked() && type != ALL_TYPES_ID;
+	bool ignore_duplicates = ignoreDuplicateTransactionsButton->isChecked();
 	QString description, comments, payee, tags;
 	double quantity = 1.0;
 	if(!test && description_c < 0) description = valueDescriptionEdit->text();
@@ -1286,11 +1312,14 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 	last_document_directory = fileInfo.absoluteDir().absolutePath();
 
 	QTextStream fstream(&file);
+#if (QT_VERSION < QT_VERSION_CHECK(6, 0, 0))
 	fstream.setCodec("UTF-8");
+#endif
 
 	//bool had_data = false;
 	int successes = 0;
 	int failed = 0;
+	int duplicates = 0;
 	bool missing_columns = false, value_error = false, date_error = false;
 	bool AC1_empty = false, AC2_empty = false, AC1_missing = false, AC2_missing = false, AC_security = false, AC_balancing = false, AC_same = false;
 	bool AC1_category = (type == 0 || type == 1 || type == 3 || type == 4);
@@ -1731,7 +1760,11 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 					if(trans) {
 						trans->readTags(tags);
 						trans->setQuantity(quantity);
-						if(trans->date() > curdate) {
+						if(ignore_duplicates && budget->findDuplicateTransaction(trans)) {
+							duplicates++;
+							successes--;
+							delete trans;
+						} else if(trans->date() > curdate) {
 							trans->setTimestamp(datestamps.contains(QDate::currentDate()) ? datestamps[QDate::currentDate()] + 1 : DATE_TO_MSECS(QDate::currentDate()) / 1000);
 							datestamps[QDate::currentDate()] = trans->timestamp();
 							budget->addScheduledTransaction(new ScheduledTransaction(budget, trans, NULL));
@@ -1761,6 +1794,10 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 	} else {
 		info = tr("Unable to import any transactions.");
 	}
+	if(duplicates > 0) {
+		info += "\n";
+		info += tr("%n duplicate transaction(s) was ignored.", "", duplicates);
+	}
 	if(failed > 0) {
 		info += '\n';
 		info += tr("Failed to import %n data row(s).", "", failed);
@@ -1774,7 +1811,7 @@ bool ImportCSVDialog::import(bool test, csv_info *ci) {
 		if(AC_security) {details += "\n-"; details += tr("Cannot import security transactions (to/from security accounts).");}
 		if(AC_balancing) {details += "\n-"; details += tr("Balancing account wrongly used.", "Referring to the account used for adjustments of account balances.");}
 		if(AC_same) {details += "\n-"; details += tr("Same to and from account/category.");}
-	} else if(successes == 0) {
+	} else if(successes == 0 && duplicates == 0) {
 		info = tr("No data found.");
 	}
 	if(failed > 0 || successes == 0) {

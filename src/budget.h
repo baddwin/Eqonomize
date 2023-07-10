@@ -42,6 +42,12 @@
 #define QUANTITY_DECIMAL_PLACES 2
 #define IS_GREGORIAN_CALENDAR true
 
+#if QT_VERSION >= QT_VERSION_CHECK(6, 0, 0)
+#	define XML_COMPARE_CONST_CHAR(x) QLatin1String(x)
+#else
+#	define XML_COMPARE_CONST_CHAR(x) x
+#endif
+
 class QProcess;
 class QNetworkReply;
 
@@ -136,7 +142,7 @@ class Budget {
 
 	protected:
 
-		int i_quotation_decimals, i_share_decimals, i_budget_day, i_budget_month, i_opened_revision, i_revision;
+		int i_quotation_decimals, i_share_decimals, i_budget_day, i_budget_week, i_budget_month, i_opened_revision, i_revision;
 		bool b_record_new_tags, b_record_new_accounts, b_record_new_securities, b_default_currency_changed, b_currency_modified;
 		TransactionConversionRateDate i_tcrd;
 
@@ -168,6 +174,7 @@ class Budget {
 		void loadLocalCurrencies();
 		void loadCurrenciesFile(QString filename, bool is_local);
 		QString loadECBData(QByteArray data);
+		QString loadExchangerateHostData(QByteArray data);
 		QString loadMyCurrencyNetData(QByteArray data);
 		QString loadMyCurrencyNetHtml(QByteArray data);
 		QString saveCurrencies();
@@ -294,6 +301,8 @@ class Budget {
 
 		void setBudgetDay(int day_of_month);
 		int budgetDay() const;
+		void setBudgetWeek(int week_of_month);
+		int budgetWeek() const;
 		void setBudgetMonth(int month_of_year);
 		int budgetMonth() const;
 

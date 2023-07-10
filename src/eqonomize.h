@@ -28,6 +28,7 @@
 #include <QDropEvent>
 #include <QLabel>
 #include <QHash>
+#include <QList>
 #include <QMap>
 #include <QModelIndex>
 #include <QTextStream>
@@ -115,6 +116,7 @@ class Transactions;
 class TransactionListWidget;
 class Transfer;
 class AccountComboBox;
+class LedgerDialog;
 
 class Eqonomize : public QMainWindow {
 
@@ -131,6 +133,7 @@ class Eqonomize : public QMainWindow {
 		bool askSave(bool before_exit = false);
 		void createDefaultBudget();
 		void readFileDependentOptions();
+		void openLedger(AssetsAccount *account, bool reconcile = false);
 
 		Budget *budget;
 
@@ -243,7 +246,7 @@ class Eqonomize : public QMainWindow {
 		QAction *ActionImportCSV, *ActionImportQIF, *ActionImportEQZ, *ActionExportQIF;
 		QAction *ActionConvertCurrencies, *ActionUpdateExchangeRates;
 		QAction *ActionExtraProperties, *ActionUseExchangeRateForTransactionDate, *ActionSetBudgetPeriod, *ActionSetScheduleConfirmationTime, *AIPCurrentMonth, *AIPCurrentYear, *AIPCurrentWholeMonth, *AIPCurrentWholeYear, *AIPRememberLastDates, *ABFDaily, *ABFWeekly, *ABFFortnightly, *ABFMonthly, *ABFNever, *ACSTime[11];
-		QAction *ActionSetMainCurrency, *ActionSyncSettings, *ActionSelectFont;
+		QAction *ActionSetMainCurrency, *ActionSyncSettings, *ActionSelectFont, *ActionDarkMode;
 		QActionGroup *ActionSelectInitialPeriod, *ActionSelectBackupFrequency, *ActionSelectLang;
 		QAction *ActionHelp, *ActionWhatsThis, *ActionReportBug, *ActionAbout, *ActionAboutQt;
 		QAction *ActionNewTag, *ActionRenameTag, *ActionRemoveTag;
@@ -258,9 +261,12 @@ class Eqonomize : public QMainWindow {
 		void updateRecentFiles(QString filePath = QString());
 		void saveOptions();
 		void closeEvent(QCloseEvent *event);
-
+		void updatePalette(bool);
 		void dragEnterEvent(QDragEnterEvent *event);
 		void dropEvent(QDropEvent *event);
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+		void changeEvent(QEvent *e) override;
+#endif
 
 		QUrl current_url;
 		double period_months, from_to_months;
@@ -303,6 +309,7 @@ class Eqonomize : public QMainWindow {
 		QComboBox *setMainCurrencyCombo;
 		QNetworkReply *updateExchangeRatesReply, *checkVersionReply;
 		CurrencyConversionDialog *currencyConversionWindow;
+		QList<LedgerDialog*> ledgers;
 
 		int prev_set_main_currency_index;
 		double total_value, total_cost, total_profit, total_rate;
@@ -344,12 +351,21 @@ class Eqonomize : public QMainWindow {
 
 		void checkAvailableVersion_readdata();
 		void languageSelected();
+		void ledgerClosed(QObject*);
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+		void updateColors();
+#endif
+
 
 	public slots:
 
 		void saveCrashRecovery();
 		void autoSave();
 		void onAutoSaveTimeout();
+
+		void updateColumnWidths();
+		void updateAccountColumnWidths();
+		void resetColumnWidths();
 
 		void onActivateRequested(const QStringList&, const QString&);
 
@@ -363,6 +379,7 @@ class Eqonomize : public QMainWindow {
 		void setScheduleConfirmationTime();
 
 		void selectFont();
+		void setDarkMode(bool);
 
 		void showFilter();
 
@@ -835,6 +852,9 @@ class EqonomizeTreeWidget : public QTreeWidget {
 	protected:
 
 		void dropEvent(QDropEvent *event);
+#if defined _WIN32 && (QT_VERSION >= QT_VERSION_CHECK(6, 5, 0))
+		void changeEvent(QEvent *e) override;
+#endif
 
 	protected slots:
 
